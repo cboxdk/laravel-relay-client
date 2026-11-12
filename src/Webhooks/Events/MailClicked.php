@@ -15,12 +15,18 @@ use DateTimeImmutable;
  */
 readonly class MailClicked implements RelayEvent
 {
+    /**
+     * @param  list<string>  $tags  the tags the mail was sent with
+     * @param  array<string, string>  $metadata  the metadata the mail was sent with
+     */
     public function __construct(
         public string $id,
         public string $projectId,
         public string $linkId,
         public string $url,
         public DateTimeImmutable $clickedAt,
+        public array $tags = [],
+        public array $metadata = [],
     ) {}
 
     public static function type(): string
@@ -36,6 +42,8 @@ readonly class MailClicked implements RelayEvent
             Payload::string($data, 'link_id'),
             Payload::string($data, 'url'),
             Payload::date($data, 'clicked_at'),
+            tags: Labels::tags($data),
+            metadata: Labels::metadata($data),
         );
     }
 }

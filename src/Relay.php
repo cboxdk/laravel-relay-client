@@ -17,6 +17,8 @@ use Cbox\Relay\Client\Data\JudgeKind;
 use Cbox\Relay\Client\Data\Judgment;
 use Cbox\Relay\Client\Data\Mail;
 use Cbox\Relay\Client\Data\MailAddress;
+use Cbox\Relay\Client\Data\MailBatchResult;
+use Cbox\Relay\Client\Data\MailFilter;
 use Cbox\Relay\Client\Data\NewEvent;
 use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Data\Page;
@@ -279,7 +281,8 @@ class Relay
 
     /**
      * Hand a mail to Relay. `$mail->status` on the answer says what happens next:
-     * `queued`, `blocked` (every recipient is suppressed) or `quarantined`.
+     * `queued`, `scheduled` (it waits for `sendAt`), `blocked` (every recipient is
+     * suppressed) or `quarantined`.
      */
     public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null): Mail
     {
@@ -291,6 +294,40 @@ class Relay
         }
 
         return $sent;
+    }
+
+    /**
+     * Hand up to 100 mails to Relay in one call. Each is judged and stored on its own, so
+     * one that is refused does not stop the others: read the result of each, in the order
+     * given. `$idempotencyKey` covers the whole call.
+     *
+     * @param  list<OutgoingMail>  $mails
+     * @return list<MailBatchResult>
+     */
+    public function sendMailBatch(array $mails, ?string $idempotencyKey = null): array
+    {
+        $project = $this->acting->ref;
+        $results = $this->transport->sendMailBatch($mails, $idempotencyKey, $project);
+
+        if ($this->store->enabled()) {
+            foreach ($results as $index => $result) {
+                if ($result->mail !== null && isset($mails[$index])) {
+                    $this->store->recordSent($result->mail, $mails[$index], $project, $this->connection);
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * The project's mail, newest first.
+     *
+     * @return Page<Mail>
+     */
+    public function mails(?MailFilter $filter = null, ?int $limit = null, ?string $cursor = null): Page
+    {
+        return $this->transport->listMail($filter ?? new MailFilter, $limit, $cursor, $this->acting->ref);
     }
 
     /** What became of a mail and of each recipient; null when there is none with that id. */
@@ -317,6 +354,16 @@ class Relay
     public function discardMail(string $id): Mail
     {
         return $this->transport->discardMail($id, $this->acting->ref);
+    }
+
+    /**
+     * Take back a mail that waits for its `send_at`: it is never sent, becomes
+     * `cancelled`, and its content is removed. A mail that no longer waits throws
+     * `RelayConflict` with the type `mail_not_scheduled`.
+     */
+    public function cancelMail(string $id): Mail
+    {
+        return $this->transport->cancelMail($id, $this->acting->ref);
     }
 
     // Project

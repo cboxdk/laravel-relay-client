@@ -37,6 +37,7 @@ return new class extends Migration
             $table->unsignedInteger('bounced')->default(0);
             $table->unsignedInteger('complained')->default(0);
             $table->unsignedInteger('clicked')->default(0);
+            $table->unsignedInteger('opened')->default(0);
             $table->timestamp('last_event_at')->nullable();
             $table->timestamps();
 

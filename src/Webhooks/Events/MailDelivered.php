@@ -13,10 +13,16 @@ use Cbox\Relay\Client\Webhooks\RelayEvent;
  */
 readonly class MailDelivered implements RelayEvent
 {
+    /**
+     * @param  list<string>  $tags  the tags the mail was sent with
+     * @param  array<string, string>  $metadata  the metadata the mail was sent with
+     */
     public function __construct(
         public string $id,
         public string $projectId,
         public string $recipient,
+        public array $tags = [],
+        public array $metadata = [],
     ) {}
 
     public static function type(): string
@@ -30,6 +36,8 @@ readonly class MailDelivered implements RelayEvent
             Payload::string($data, 'id'),
             Payload::string($data, 'project_id'),
             Payload::string($data, 'recipient'),
+            tags: Labels::tags($data),
+            metadata: Labels::metadata($data),
         );
     }
 }

@@ -45,7 +45,7 @@ class Domains
     /**
      * Turn click tracking on or off for the domain: every mail from it follows, unless a
      * mail says otherwise. With it on, the `http` and `https` links in a mail's HTML go
-     * through Relay, which records the click and sends the reader on. Opens are not tracked.
+     * through Relay, which records the click and sends the reader on.
      */
     public function trackClicks(string $id, bool $clicks = true): SendingDomain
     {
@@ -53,7 +53,18 @@ class Domains
     }
 
     /**
-     * Change the domain's click tracking: on or off, and the host tracked links are
+     * Turn open tracking on or off for the domain: with it on, the HTML of every mail from
+     * it ends with an invisible image that reports when a mail client fetches it, unless a
+     * mail says otherwise. An open is a weak signal (mail clients fetch images on their
+     * own, or not at all) and it is personal data: turning it on is your decision.
+     */
+    public function trackOpens(string $id, bool $opens = true): SendingDomain
+    {
+        return $this->transport->updateDomain($id, new TrackingChanges(opens: $opens), $this->project->ref);
+    }
+
+    /**
+     * Change the domain's tracking: clicks and opens on or off, and the host tracked links are
      * written on. A host of the domain's own is a CNAME to Relay's tracking host; the
      * record to publish is in the answer's `$records` with the purpose `tracking`.
      */

@@ -73,4 +73,7 @@ enum Operation: string
     case FindMail = 'find_mail';
     case ReleaseMail = 'release_mail';
     case DiscardMail = 'discard_mail';
+    case ListMail = 'list_mail';
+    case SendMailBatch = 'send_mail_batch';
+    case CancelMail = 'cancel_mail';
 }

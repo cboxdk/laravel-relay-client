@@ -27,6 +27,8 @@ class ReceivedWebhookFactory
             $event instanceof Data\MailBounced => new Received\MailBounced($event, $webhook, $connection),
             $event instanceof Data\MailComplained => new Received\MailComplained($event, $webhook, $connection),
             $event instanceof Data\MailClicked => new Received\MailClicked($event, $webhook, $connection),
+            $event instanceof Data\MailOpened => new Received\MailOpened($event, $webhook, $connection),
+            $event instanceof Data\MailDeferred => new Received\MailDeferred($event, $webhook, $connection),
             $event instanceof Data\PushDelivered => new Received\PushDelivered($event, $webhook, $connection),
             $event instanceof Data\PushExpired => new Received\PushExpired($event, $webhook, $connection),
             $event instanceof Data\EndpointDisabled => new Received\EndpointDisabled($event, $webhook, $connection),

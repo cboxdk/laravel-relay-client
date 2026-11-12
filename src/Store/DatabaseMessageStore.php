@@ -27,13 +27,16 @@ class DatabaseMessageStore implements MessageStore
         'mail.accepted' => null,
         'mail.blocked' => 'blocked',
         'mail.delivered' => 'delivered',
+        // Not an end: the mail is still on its way.
+        'mail.deferred' => null,
         'mail.bounced' => 'bounced',
         'mail.complained' => 'complained',
         'mail.clicked' => null,
+        'mail.opened' => null,
     ];
 
     /** A later event never replaces a status that says more: a complaint outlives a delivery. */
-    private const array RANK = ['queued' => 0, 'quarantined' => 0, 'blocked' => 1, 'delivered' => 2, 'bounced' => 3, 'complained' => 4];
+    private const array RANK = ['queued' => 0, 'scheduled' => 0, 'quarantined' => 0, 'blocked' => 1, 'delivered' => 2, 'bounced' => 3, 'complained' => 4];
 
     public function __construct(private readonly RelayConfig $config) {}
 
@@ -102,6 +105,7 @@ class DatabaseMessageStore implements MessageStore
                 'mail.bounced' => 'bounced',
                 'mail.complained' => 'complained',
                 'mail.clicked' => 'clicked',
+                'mail.opened' => 'opened',
                 default => null,
             };
             $status = self::STATUS[$webhook->type];

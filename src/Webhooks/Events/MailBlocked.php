@@ -14,6 +14,10 @@ use Cbox\Relay\Client\Webhooks\RelayEvent;
  */
 readonly class MailBlocked implements RelayEvent
 {
+    /**
+     * @param  list<string>  $tags  the tags the mail was sent with
+     * @param  array<string, string>  $metadata  the metadata the mail was sent with
+     */
     public function __construct(
         public string $id,
         public string $projectId,
@@ -22,6 +26,8 @@ readonly class MailBlocked implements RelayEvent
         public int $suppressed = 0,
         public string $status = '',
         public ?string $reason = null,
+        public array $tags = [],
+        public array $metadata = [],
     ) {}
 
     public static function type(): string
@@ -39,6 +45,8 @@ readonly class MailBlocked implements RelayEvent
             suppressed: Payload::int($data, 'suppressed'),
             status: Payload::string($data, 'status'),
             reason: Payload::nullableString($data, 'reason'),
+            tags: Labels::tags($data),
+            metadata: Labels::metadata($data),
         );
     }
 }
