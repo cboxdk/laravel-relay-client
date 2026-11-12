@@ -34,14 +34,20 @@ against a live Relay.
   `RelayForbidden`, 404 `RelayNotFound`, 409 `RelayConflict`, 413 `RelayTooLarge`, 422
   `RelayInvalid` (field errors), 429 `RelayRateLimited` (`Retry-After` in seconds or as
   an HTTP date), 5xx and connection errors `RelayUnavailable`, any other status the base
-  `RelayException`. Plus `RelayNotConfigured`, `RelayMalformedResponse`,
-  `RelayProjectRequired` and `RelayWebhookRejected`.
+  `RelayException`. Plus `RelayNotConfigured`, `RelayMalformedResponse` and
+  `RelayWebhookRejected`.
 - The `Relay` manager, its fronts (`Projects`, `EventTypes`, `Endpoints`, `Events`,
   `Sources`, `InboundRoutes`, `Inbound`, `PushSubscriptions`, `Domains`, `Suppressions`)
   and the
-  facade, with `forProject()`, `withoutProject()`, `relay.project` and `relay.project_key`.
-  Calls that need a project throw `RelayProjectRequired` before a request is made, and
-  Relay's own 422 `project_required` is thrown as the same exception.
+  facade, with `forProject()`, `withoutProject()` and `relay.project`. A call with no
+  project named goes out without `Relay-Project`: Relay then acts for the key's own
+  project or the project `default`.
+- Mail beyond a plain send: tags and metadata (sent, read back, and on every typed event
+  about a sent mail), inline images by content id, `sendAt` with `cancelMail()`,
+  `sendMailBatch()`, `mails()` with `MailFilter`, open tracking per domain and per mail,
+  and the typed events `mail.opened` and `mail.deferred`. The mail transport carries a
+  mailable's tags, metadata and embedded images, and takes `X-Relay-Track-Opens` and
+  `X-Relay-Send-At`.
 - `Relay::publish()` through `Contracts\EventPublisher`: `Jobs\PublishEvent` queued after
   commit with a generated idempotency key, its retry rules (permanent on 403, 404, 413,
   422; `Retry-After` on 429; backoff otherwise), `relay.publish.sync`, `publishNow()` and
@@ -104,12 +110,13 @@ against a live Relay.
   `IncomingWebhook::$deliveryId`.
 - **Batched webhook deliveries** (the engine's batch envelope): the API has no way to
   ask for them, so they are not parsed.
-- **Inline images in mail.** The API's attachments have no content id, so an embedded
-  image goes as an ordinary attachment.
+- **A batch through the mail transport.** Laravel hands the transport one mail at a
+  time; a batch is `Relay::sendMailBatch()`.
+- **SMTP submission.** Relay takes mail over SMTP too; this client does not use it.
 - **Suspending, deleting or renaming projects** beyond what a `put` does, and **key
   management**: not in the API.
 - **Client-side key checks.** The client does not validate the `rlk_…` format and does
-  not know an organization key from a project key; `relay.project_key` is how you tell it.
+  not know an organization key from a project key, and no longer needs to.
 
 ## Not verified
 
@@ -118,6 +125,11 @@ against a live Relay.
   delivery from Relay has passed through the route.
 - **The store on PostgreSQL and MySQL.** The suite runs it on SQLite in memory.
 - **`relay:install` in a real app.** Tested in Testbench's skeleton.
+- **An embedded image through a real mail client.** The mapping is tested on the
+  structured mail handed to Relay (the content id and the `cid:` in the HTML agree); how
+  the result is drawn in a mail client has not been looked at.
+- **Relay's handling of tags, metadata, a batch and a send time.** Written from Relay's
+  OpenAPI document of 12 November 2026 and tested against `Http::fake()` and the fake.
 
 - **Against a running Relay.** Every HTTP test runs against `Http::fake()` with bodies
   written from the API description, so the shapes are as described, not as observed.

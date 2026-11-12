@@ -32,10 +32,12 @@ API key, the public endpoint, nothing else.
 - **[Local delivery status](core-concepts/delivery-status.md)**: an optional store of
   the mail you sent and what Relay said about it, in your own database.
 - **[Connections](core-concepts/connections.md)**: more than one Relay key from one app.
+- **[SMTP as an alternative](core-concepts/smtp-submission.md)**: for software that
+  cannot call an API, and what you give up by using it from Laravel.
 - **[Commands](getting-started/commands.md)**: `relay:install`, `relay:doctor`,
   `relay:ping`, `relay:tail` and a health check.
 - **[Authentication and projects](core-concepts/authentication.md)**: `whoami()`,
-  `forProject()`, and a clear exception when a call needs a project and has none.
+  `forProject()`, and what Relay does when no project is named.
 - **[Projects](core-concepts/projects.md)** and **[the delivery log](core-concepts/deliveries.md)**.
 - **[Typed errors](core-concepts/errors.md)**: every problem answer is its own exception.
 - **[A fake](getting-started/testing.md)**: `Relay::fake()` keeps all of it in memory,

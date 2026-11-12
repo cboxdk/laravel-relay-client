@@ -34,8 +34,7 @@ $me->scoped();       // whether the call acted for one project
 
 A project Relay does not know answers 404 (`RelayNotFound`, type `project_not_found`).
 
-The client does not know which kind `RELAY_KEY` is. Tell it with `relay.project_key`
-(below) when it is a project key.
+The client does not know which kind `RELAY_KEY` is, and does not need to.
 
 ## Acting for a project
 
@@ -51,28 +50,30 @@ $relay->deliveries();                       // that project's log
 To act for one project everywhere, set `RELAY_PROJECT` (`relay.project`). `forProject()`
 overrides it for one client, `Relay::withoutProject()` removes it for one client.
 
-## Calls that need a project
+## When no project is named
 
-Most of the API only makes sense for one project: publishing, endpoints, sources, the
-judge, push, sending domains, suppressions and mail. With an organization key and no
-`Relay-Project`, Relay answers those 422 with the type `project_required`. The client does not let it get that far: a call that needs a
-project throws `Cbox\Relay\Client\Exceptions\RelayProjectRequired` before anything is sent
-when neither `forProject()` nor `relay.project` names one.
+Most of the API acts for one project: publishing, endpoints, sources, the judge, push,
+sending domains, suppressions and mail. You do not have to name it. With neither
+`forProject()` nor `relay.project`, a call goes out without the `Relay-Project` header and
+Relay decides:
+
+- a **project key** acts for the project it is locked to;
+- an **organization key** acts for the environment's project `default`, which Relay makes
+  the first time it is needed.
 
 ```php
-Relay::publish('order.paid', $payload);                       // RelayProjectRequired
-Relay::forProject($workspace->id)->publish('order.paid', $payload);
+Relay::publish('order.paid', $payload);                               // the key's own project, or `default`
+Relay::forProject($workspace->id)->publish('order.paid', $payload);  // that workspace's project
 ```
 
-`whoami()`, `projects()`, `deliveries()` and `inbound()` work without a project.
+An app with one project never has to think about projects. An app that keeps a project
+per customer must name it on every call: one that forgets lands in `default`, not in an
+error. `whoami()`, `projects()`, `deliveries()` and `inbound()` read across the
+environment when no project is named.
 
-With a project key, set `RELAY_PROJECT_KEY=true` (`relay.project_key`). Relay already knows
-the key's project, so scoped calls go out without the header and nothing is thrown.
-
-The check lives in the `Relay` manager. Code that calls the `RelayTransport` contract
-directly passes its own `$project`; when it is missing, Relay's `project_required` answer
-becomes the same `RelayProjectRequired`, then with `$e->problem` set. So one catch covers
-both.
+Before 0.2.0 the client threw `RelayProjectRequired` for such a call, and a project key had
+to be announced with `relay.project_key`. Both are gone, as is Relay's `project_required`
+answer.
 
 Never take the project from user input without checking that the user belongs to that
 workspace: with an organization key, the value picks whose data is read. See the

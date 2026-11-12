@@ -41,8 +41,9 @@ forwards to the contract. Groups of calls live on small objects it returns:
 unchanged. The container builds a new manager on every resolution, on whatever
 transport is bound at that moment.
 
-The manager is where a missing project is caught: see
-[Authentication](authentication.md#calls-that-need-a-project).
+The manager holds the project a call acts for and passes it to the transport; with none
+named, no `Relay-Project` header is sent. See
+[Authentication](authentication.md#when-no-project-is-named).
 
 ## Publishing
 

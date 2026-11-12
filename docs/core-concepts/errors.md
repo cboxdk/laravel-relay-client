@@ -23,7 +23,6 @@ an exception; all of them extend `Cbox\Relay\Client\Exceptions\RelayException`.
 | any other status | `RelayException` | |
 | no `RELAY_URL` or `RELAY_KEY` | `RelayNotConfigured` | nothing was sent |
 | a 2xx body the client cannot read | `RelayMalformedResponse` | |
-| a scoped call with no project set, or 422 with the type `project_required` | `RelayProjectRequired` | from the manager nothing was sent; see [Authentication](authentication.md#calls-that-need-a-project) |
 | an incoming webhook that does not verify | `RelayWebhookRejected` | `->reason`; see [Webhooks from Relay](incoming-webhooks.md) |
 
 ```php

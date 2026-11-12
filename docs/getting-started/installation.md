@@ -41,9 +41,11 @@ reach Relay. By default the job goes on the app's default connection and queue; 
 
 ## Project
 
-Most calls act for one project. With an organization key, name it per call with
-`Relay::forProject($ref)` or once with `RELAY_PROJECT`. With a project key, set
-`RELAY_PROJECT_KEY=true`. See [Authentication](../core-concepts/authentication.md).
+Most calls act for one project. You do not have to name one: with nothing set, a project
+key acts for its own project and an organization key for the project `default`, which
+Relay makes on first use. To act for another, name it per call with
+`Relay::forProject($ref)` or once with `RELAY_PROJECT`. See
+[Authentication](../core-concepts/authentication.md).
 
 ## Config
 

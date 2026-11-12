@@ -33,8 +33,11 @@ organizations and projects, and stores data is the service's own concern.
   `RelayMalformedResponse` instead of yielding a half-filled object.
 - **TLS is the HTTP client's default.** The package does not disable certificate
   verification and offers no option to.
-- **A scoped call without a project is stopped.** `RelayProjectRequired` is thrown before a
-  request is made, so a missing project cannot turn into a call for the wrong one.
+- **A call that names no project never guesses one.** It goes out without a
+  `Relay-Project` header, and Relay decides: the project the key is locked to or, for an
+  organization key, the environment's `default` project. If each customer of yours has a
+  project of their own, name it on every call (`forProject()`): a call that forgets to
+  lands in `default`, not in a customer's project.
 - **Incoming webhooks are verified before they are parsed.** The `relay.webhook`
   middleware checks an HMAC-SHA256 over the raw body with `hash_hmac()` and compares
   with `hash_equals()`, tries every configured secret whichever matches, accepts only a
