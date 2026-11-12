@@ -348,5 +348,5 @@ it('fails its mail assertions when they do not hold', function (): void {
 it('acts as a key with every ability by default', function (): void {
     expect(Relay::whoami()->can('events:publish'))->toBeTrue()
         ->and(Relay::whoami()->can('mail:send'))->toBeTrue()
-        ->and(Relay::whoami()->key->abilities)->toHaveCount(13);
+        ->and(Relay::whoami()->key->abilities)->toHaveCount(14);
 });

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client;
 
 use Cbox\Relay\Client\Contracts\RelayTransport;
+use Cbox\Relay\Client\Data\DomainReputation;
 use Cbox\Relay\Client\Data\SendingDomain;
 
 /** The domains a scope sends mail from. Reached through `Relay::domains()`. */
@@ -38,6 +39,12 @@ class Domains
     public function verify(string $id): SendingDomain
     {
         return $this->transport->verifyDomain($id, $this->scope->required());
+    }
+
+    /** How the mail this scope sent from the domain fared lately: the numbers Relay's automatic pause looks at. */
+    public function reputation(string $id): DomainReputation
+    {
+        return $this->transport->domainReputation($id, $this->scope->required());
     }
 
     /** Stop sending from the domain. Mail still waiting from it is not sent. */

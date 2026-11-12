@@ -9,6 +9,7 @@ use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\Delivery;
 use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Data\Direction;
+use Cbox\Relay\Client\Data\Erasure;
 use Cbox\Relay\Client\Data\Identity;
 use Cbox\Relay\Client\Data\JudgeInput;
 use Cbox\Relay\Client\Data\JudgeKind;
@@ -105,15 +106,17 @@ class Relay
      * publish it twice, and one without `$occurredAt` is stamped with the present moment. Pass your own (`"order.paid:{$order->id}"`) when the same fact
      * may be published from more than one place.
      *
+     * `$subject` is your own id for the person the event is about; see {@see eraseSubject()}.
+     *
      * @param  array<string, mixed>  $payload
      * @return string the idempotency key the event was handed over with
      */
-    public function publish(string $type, array $payload = [], ?string $idempotencyKey = null, ?DateTimeInterface $occurredAt = null): string
+    public function publish(string $type, array $payload = [], ?string $idempotencyKey = null, ?DateTimeInterface $occurredAt = null, ?string $subject = null): string
     {
         $key = $idempotencyKey ?? PublishEvent::newIdempotencyKey();
 
         // Stamped here: the job may run much later, and that is not when the event occurred.
-        $this->publisher->publish(new NewEvent($type, $payload, $key, $occurredAt ?? Carbon::now()), $this->acting->required());
+        $this->publisher->publish(new NewEvent($type, $payload, $key, $occurredAt ?? Carbon::now(), $subject), $this->acting->required());
 
         return $key;
     }
@@ -124,9 +127,9 @@ class Relay
      *
      * @param  array<string, mixed>  $payload
      */
-    public function publishNow(string $type, array $payload = [], ?string $idempotencyKey = null, ?DateTimeInterface $occurredAt = null): Published
+    public function publishNow(string $type, array $payload = [], ?string $idempotencyKey = null, ?DateTimeInterface $occurredAt = null, ?string $subject = null): Published
     {
-        return $this->transport->publishEvent(new NewEvent($type, $payload, $idempotencyKey, $occurredAt), $this->acting->required());
+        return $this->transport->publishEvent(new NewEvent($type, $payload, $idempotencyKey, $occurredAt, $subject), $this->acting->required());
     }
 
     /**
@@ -138,6 +141,23 @@ class Relay
     public function publishBatch(array $events): array
     {
         return $this->transport->publishEvents($events, $this->acting->required());
+    }
+
+    /**
+     * Forget one person inside the scope: remove the events that were published with
+     * this `$subject`, and their deliveries and attempts. Events published without a
+     * subject are not found. Safe to repeat: the second call removes nothing.
+     */
+    public function eraseSubject(string $subject): Erasure
+    {
+        return $this->transport->eraseSubject($subject, $this->acting->required());
+    }
+
+    // Webhooks in
+
+    public function sources(): Sources
+    {
+        return new Sources($this->transport, $this->acting);
     }
 
     // The judge

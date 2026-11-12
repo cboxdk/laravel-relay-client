@@ -6,6 +6,7 @@ namespace Cbox\Relay\Client\Testing;
 
 use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\ApiKey;
+use Cbox\Relay\Client\Data\AttemptOutcome;
 use Cbox\Relay\Client\Data\Delivery;
 use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Data\Environment;
@@ -24,6 +25,7 @@ use Cbox\Relay\Client\Testing\Concerns\FakesInbound;
 use Cbox\Relay\Client\Testing\Concerns\FakesJudge;
 use Cbox\Relay\Client\Testing\Concerns\FakesMail;
 use Cbox\Relay\Client\Testing\Concerns\FakesPush;
+use Cbox\Relay\Client\Testing\Concerns\FakesSources;
 use Cbox\Relay\Client\Testing\Concerns\FakesWebhooks;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -46,6 +48,7 @@ class FakeRelay implements RelayTransport
     use FakesJudge;
     use FakesMail;
     use FakesPush;
+    use FakesSources;
     use FakesWebhooks;
 
     /** The page size when a list is read without `limit`. */
@@ -86,11 +89,11 @@ class FakeRelay implements RelayTransport
             Environment::Test,
             new ApiKey('key_fake', 'Fake key', 'rlk_test_fake', [
                 'scopes:manage', 'deliveries:read', 'judge:run', 'inbound:read', 'inbound:manage', 'push:send', 'push:manage',
-                'mail:send', 'domains:manage', 'suppressions:manage', 'events:publish', 'events:read', 'endpoints:manage',
+                'mail:send', 'domains:manage', 'suppressions:manage', 'events:publish', 'events:read', 'endpoints:manage', 'sources:manage',
             ]),
         );
 
-        $this->pingResult = new PingResult('delivered', 200, 1);
+        $this->pingResult = new PingResult(AttemptOutcome::Success->value, 200, 1);
     }
 
     public function whoami(?string $scope = null): Identity

@@ -8,6 +8,7 @@ use Cbox\Relay\Client\Data\DeliveryRetry;
 use Cbox\Relay\Client\Data\Endpoint;
 use Cbox\Relay\Client\Data\EndpointChanges;
 use Cbox\Relay\Client\Data\EndpointHealth;
+use Cbox\Relay\Client\Data\Erasure;
 use Cbox\Relay\Client\Data\Event;
 use Cbox\Relay\Client\Data\EventType;
 use Cbox\Relay\Client\Data\NewEndpoint;
@@ -40,8 +41,11 @@ trait FakesWebhooks
     /** @var array<string, array<string, WebhookDelivery>> by scope, then id */
     private array $webhookDeliveries = [];
 
-    /** @var list<array{event: NewEvent, scope: string|null, id: string}> every event that was really published */
+    /** @var list<array{event: NewEvent, scope: string|null, id: string, bucket: string}> every event that was really published */
     private array $published = [];
+
+    /** @var list<array{subject: string, scope: string|null}> */
+    private array $erasedSubjects = [];
 
     private PingResult $pingResult;
 
@@ -137,6 +141,35 @@ trait FakesWebhooks
         $this->markWebhookDelivery($id, 'pending');
 
         return new DeliveryRetry($id, 'pending');
+    }
+
+    public function eraseSubject(string $subject, ?string $scope = null): Erasure
+    {
+        $this->record(new RecordedCall(Operation::EraseSubject, $scope, $subject));
+        $bucket = $this->bucket($scope);
+        $removed = 0;
+
+        foreach ($this->published as $published) {
+            $id = $published['id'];
+
+            if ($published['bucket'] !== $bucket || $published['event']->subject !== $subject || ! isset($this->events[$bucket][$id])) {
+                continue;
+            }
+
+            // The event and its deliveries go; the fake keeps no attempts to remove.
+            $deliveries = array_filter($this->webhookDeliveries[$bucket] ?? [], static fn (WebhookDelivery $delivery): bool => $delivery->eventId === $id);
+
+            foreach (array_keys($deliveries) as $delivery) {
+                unset($this->webhookDeliveries[$bucket][$delivery]);
+            }
+
+            unset($this->events[$bucket][$id]);
+            $removed += 1 + count($deliveries);
+        }
+
+        $this->erasedSubjects[] = ['subject' => $subject, 'scope' => $scope];
+
+        return new Erasure($subject, $removed);
     }
 
     public function listEndpoints(?string $scope = null): array
@@ -362,6 +395,19 @@ trait FakesWebhooks
         Assert::assertSame([], $this->published($type), "The event '{$type}' was published to Cbox Relay.");
     }
 
+    /** An erasure was asked for that subject (for that scope, when one is given). */
+    public function assertSubjectErased(string $subject, ?string $scope = null): void
+    {
+        $matching = array_filter($this->erasedSubjects, static fn (array $erased): bool => $erased['subject'] === $subject && ($scope === null || $erased['scope'] === $scope));
+
+        Assert::assertNotEmpty($matching, "Cbox Relay was not asked to erase the subject '{$subject}'".($scope === null ? '' : " for the scope '{$scope}'").'.');
+    }
+
+    public function assertNoSubjectErased(): void
+    {
+        Assert::assertCount(0, $this->erasedSubjects, 'Cbox Relay was asked to erase a subject.');
+    }
+
     public function assertNothingPublished(): void
     {
         Assert::assertSame([], array_map(static fn (NewEvent $event): string => $event->type, $this->published()), 'Events were published to Cbox Relay.');
@@ -425,7 +471,7 @@ trait FakesWebhooks
         $stored = new Event('evt_fake_'.$this->nextNumber(), $event->type, $event->idempotencyKey, $event->occurredAt ?? $this->now(), $this->now(), $event->payload);
 
         $this->events[$bucket][$stored->id] = $stored;
-        $this->published[] = ['event' => $event, 'scope' => $scope, 'id' => $stored->id];
+        $this->published[] = ['event' => $event, 'scope' => $scope, 'id' => $stored->id, 'bucket' => $bucket];
 
         $deliveries = 0;
 

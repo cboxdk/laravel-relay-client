@@ -8,8 +8,10 @@ use Cbox\Relay\Client\Data\BrowserSubscription;
 use Cbox\Relay\Client\Data\Delivery;
 use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Data\DeliveryRetry;
+use Cbox\Relay\Client\Data\DomainReputation;
 use Cbox\Relay\Client\Data\Endpoint;
 use Cbox\Relay\Client\Data\EndpointChanges;
+use Cbox\Relay\Client\Data\Erasure;
 use Cbox\Relay\Client\Data\Event;
 use Cbox\Relay\Client\Data\EventType;
 use Cbox\Relay\Client\Data\Identity;
@@ -30,11 +32,14 @@ use Cbox\Relay\Client\Data\PushSubscription;
 use Cbox\Relay\Client\Data\PushUrgency;
 use Cbox\Relay\Client\Data\Scope;
 use Cbox\Relay\Client\Data\SendingDomain;
+use Cbox\Relay\Client\Data\Source;
+use Cbox\Relay\Client\Data\SourceScheme;
 use Cbox\Relay\Client\Data\Suppression;
 use Cbox\Relay\Client\Data\SuppressionReason;
 use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Relay;
 use DateTimeInterface;
+use SensitiveParameter;
 
 /**
  * The Relay API, one method per endpoint. Everything else in this package (the
@@ -161,6 +166,36 @@ interface RelayTransport
      */
     public function replayEndpoint(string $id, DateTimeInterface $since, ?DateTimeInterface $until = null, array $types = [], ?string $scope = null): int;
 
+    /** `POST /v1/erasures`: remove the events published with this subject, with their deliveries and attempts. */
+    public function eraseSubject(string $subject, ?string $scope = null): Erasure;
+
+    // Webhooks in
+
+    /**
+     * `GET /v1/sources`
+     *
+     * @return list<Source>
+     */
+    public function listSources(?string $scope = null): array;
+
+    /** `POST /v1/sources`. The secret is the provider's and is never returned. */
+    public function createSource(string $name, SourceScheme $scheme, #[SensitiveParameter] string $secret, ?string $idempotencyKey = null, ?string $scope = null): Source;
+
+    /** `GET /v1/sources/{id}`; null when Relay answers 404. */
+    public function findSource(string $id, ?string $scope = null): ?Source;
+
+    /** `PUT /v1/sources/{id}/secret` */
+    public function rotateSourceSecret(string $id, #[SensitiveParameter] string $secret, ?string $scope = null): Source;
+
+    /** `POST /v1/sources/{id}/pause` */
+    public function pauseSource(string $id, ?string $scope = null): Source;
+
+    /** `POST /v1/sources/{id}/resume` */
+    public function resumeSource(string $id, ?string $scope = null): Source;
+
+    /** `DELETE /v1/sources/{id}` */
+    public function deleteSource(string $id, ?string $scope = null): void;
+
     // The judge
 
     /** `POST /v1/judge` (201 → `Judgment::$created` true, 200 → false) */
@@ -245,6 +280,9 @@ interface RelayTransport
 
     /** `POST /v1/domains/{id}/verify`: the domain as it is now, verified or not. */
     public function verifyDomain(string $id, ?string $scope = null): SendingDomain;
+
+    /** `GET /v1/domains/{id}/reputation` */
+    public function domainReputation(string $id, ?string $scope = null): DomainReputation;
 
     /** `DELETE /v1/domains/{id}` */
     public function deleteDomain(string $id, ?string $scope = null): void;

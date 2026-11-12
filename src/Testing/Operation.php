@@ -31,6 +31,16 @@ enum Operation: string
     case PingEndpoint = 'ping_endpoint';
     case ReplayEndpoint = 'replay_endpoint';
 
+    case EraseSubject = 'erase_subject';
+
+    case ListSources = 'list_sources';
+    case CreateSource = 'create_source';
+    case FindSource = 'find_source';
+    case RotateSourceSecret = 'rotate_source_secret';
+    case PauseSource = 'pause_source';
+    case ResumeSource = 'resume_source';
+    case DeleteSource = 'delete_source';
+
     case Judge = 'judge';
     case FindJudgment = 'find_judgment';
 
@@ -53,6 +63,7 @@ enum Operation: string
     case CreateDomain = 'create_domain';
     case FindDomain = 'find_domain';
     case VerifyDomain = 'verify_domain';
+    case DomainReputation = 'domain_reputation';
     case DeleteDomain = 'delete_domain';
     case ListSuppressions = 'list_suppressions';
     case CreateSuppression = 'create_suppression';

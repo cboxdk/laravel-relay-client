@@ -9,8 +9,10 @@ use Cbox\Relay\Client\Data\BrowserSubscription;
 use Cbox\Relay\Client\Data\Delivery;
 use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Data\DeliveryRetry;
+use Cbox\Relay\Client\Data\DomainReputation;
 use Cbox\Relay\Client\Data\Endpoint;
 use Cbox\Relay\Client\Data\EndpointChanges;
+use Cbox\Relay\Client\Data\Erasure;
 use Cbox\Relay\Client\Data\Event;
 use Cbox\Relay\Client\Data\EventType;
 use Cbox\Relay\Client\Data\Identity;
@@ -32,6 +34,8 @@ use Cbox\Relay\Client\Data\PushSubscription;
 use Cbox\Relay\Client\Data\PushUrgency;
 use Cbox\Relay\Client\Data\Scope;
 use Cbox\Relay\Client\Data\SendingDomain;
+use Cbox\Relay\Client\Data\Source;
+use Cbox\Relay\Client\Data\SourceScheme;
 use Cbox\Relay\Client\Data\Suppression;
 use Cbox\Relay\Client\Data\SuppressionReason;
 use Cbox\Relay\Client\Exceptions\RelayMalformedResponse;
@@ -44,6 +48,7 @@ use DateTimeInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Client\Response;
+use SensitiveParameter;
 use stdClass;
 
 /**
@@ -208,6 +213,50 @@ class HttpRelayTransport implements RelayTransport
         return Payload::int($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/replay', body: $body, scope: $scope)), 'queued');
     }
 
+    public function eraseSubject(string $subject, ?string $scope = null): Erasure
+    {
+        return Erasure::fromArray($this->body($this->send('POST', '/v1/erasures', body: ['subject' => $subject], scope: $scope)));
+    }
+
+    public function listSources(?string $scope = null): array
+    {
+        return $this->items($this->send('GET', '/v1/sources', scope: $scope), Source::fromArray(...));
+    }
+
+    public function createSource(string $name, SourceScheme $scheme, #[SensitiveParameter] string $secret, ?string $idempotencyKey = null, ?string $scope = null): Source
+    {
+        $body = ['name' => $name, 'scheme' => $scheme->value, 'secret' => $secret];
+
+        return Source::fromArray($this->body($this->send('POST', '/v1/sources', body: $body, scope: $scope, idempotencyKey: $idempotencyKey)));
+    }
+
+    public function findSource(string $id, ?string $scope = null): ?Source
+    {
+        $body = $this->find('/v1/sources/'.rawurlencode($id), $scope);
+
+        return $body === null ? null : Source::fromArray($body);
+    }
+
+    public function rotateSourceSecret(string $id, #[SensitiveParameter] string $secret, ?string $scope = null): Source
+    {
+        return Source::fromArray($this->body($this->send('PUT', '/v1/sources/'.rawurlencode($id).'/secret', body: ['secret' => $secret], scope: $scope)));
+    }
+
+    public function pauseSource(string $id, ?string $scope = null): Source
+    {
+        return Source::fromArray($this->body($this->send('POST', '/v1/sources/'.rawurlencode($id).'/pause', scope: $scope)));
+    }
+
+    public function resumeSource(string $id, ?string $scope = null): Source
+    {
+        return Source::fromArray($this->body($this->send('POST', '/v1/sources/'.rawurlencode($id).'/resume', scope: $scope)));
+    }
+
+    public function deleteSource(string $id, ?string $scope = null): void
+    {
+        $this->send('DELETE', '/v1/sources/'.rawurlencode($id), scope: $scope);
+    }
+
     public function judge(JudgeInput $input, ?string $idempotencyKey = null, ?string $scope = null): Judgment
     {
         $response = $this->send('POST', '/v1/judge', body: $input->toArray(), scope: $scope, idempotencyKey: $idempotencyKey);
@@ -327,6 +376,11 @@ class HttpRelayTransport implements RelayTransport
     public function verifyDomain(string $id, ?string $scope = null): SendingDomain
     {
         return SendingDomain::fromArray($this->body($this->send('POST', '/v1/domains/'.rawurlencode($id).'/verify', scope: $scope)));
+    }
+
+    public function domainReputation(string $id, ?string $scope = null): DomainReputation
+    {
+        return DomainReputation::fromArray($this->body($this->send('GET', '/v1/domains/'.rawurlencode($id).'/reputation', scope: $scope)));
     }
 
     public function deleteDomain(string $id, ?string $scope = null): void

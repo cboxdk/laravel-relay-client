@@ -45,6 +45,7 @@ class PublishEvent implements ShouldQueue
         public ?string $scope = null,
         int $tries = 5,
         public array $backoff = [10, 30, 120, 600],
+        public ?string $subject = null,
     ) {
         $this->tries = max(1, $tries);
     }
@@ -62,6 +63,7 @@ class PublishEvent implements ShouldQueue
             $scope,
             $tries,
             $backoff,
+            $event->subject,
         );
     }
 
@@ -97,6 +99,7 @@ class PublishEvent implements ShouldQueue
             $this->payload,
             $this->idempotencyKey,
             $this->occurredAt === null ? null : new DateTimeImmutable($this->occurredAt),
+            $this->subject,
         );
     }
 

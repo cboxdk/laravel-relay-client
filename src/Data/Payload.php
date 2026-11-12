@@ -200,6 +200,14 @@ class Payload
     }
 
     /**
+     * @param  array<array-key, mixed>  $data
+     */
+    public static function nullableNumber(array $data, string $key): ?float
+    {
+        return ($data[$key] ?? null) === null ? null : self::number($data, $key);
+    }
+
+    /**
      * A JSON object whose values are all strings. Missing or null reads as empty.
      *
      * @param  array<array-key, mixed>  $data

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Testing\Concerns;
 
 use Cbox\Relay\Client\Data\DnsRecord;
+use Cbox\Relay\Client\Data\DomainReputation;
 use Cbox\Relay\Client\Data\Mail;
 use Cbox\Relay\Client\Data\MailRecipient;
 use Cbox\Relay\Client\Data\OutgoingMail;
@@ -89,6 +90,39 @@ trait FakesMail
         return $this->domains[$bucket][$id] = new SendingDomain(
             $domain->id, $domain->domain, $status, $domain->createdAt, $domain->records,
             $status === 'verified' ? ($domain->verifiedAt ?? $this->now()) : $domain->verifiedAt, $this->now(),
+        );
+    }
+
+    public function domainReputation(string $id, ?string $scope = null): DomainReputation
+    {
+        $this->record(new RecordedCall(Operation::DomainReputation, $scope, $id));
+        $bucket = $this->bucket($scope);
+        $domain = $this->domainIn($bucket, $id);
+        $counts = ['sent' => 0, 'bounced' => 0, 'complained' => 0];
+
+        foreach ($this->mails[$bucket] ?? [] as $mail) {
+            if (! str_ends_with(strtolower($mail->from), '@'.$domain->domain)) {
+                continue;
+            }
+
+            // Every recipient the mail server took counts as sent, whatever came back after.
+            foreach ($mail->recipients as $recipient) {
+                if (in_array($recipient->status, ['sent', 'bounced', 'complained'], true)) {
+                    $counts['sent']++;
+                }
+
+                if ($recipient->status === 'bounced' || $recipient->status === 'complained') {
+                    $counts[$recipient->status]++;
+                }
+            }
+        }
+
+        $taken = $counts['sent'];
+
+        return new DomainReputation(
+            $domain->id, $domain->domain, 7, $taken, $counts['bounced'], $counts['complained'],
+            $taken === 0 ? null : $counts['bounced'] / $taken,
+            $taken === 0 ? null : $counts['complained'] / $taken,
         );
     }
 
@@ -227,6 +261,29 @@ trait FakesMail
                         ? new MailRecipient($recipient->address, $recipient->type, $status, $reason)
                         : $recipient, $mail->recipients),
                     $status === 'sent' ? $this->now() : $mail->sentAt,
+                );
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Set what became of one recipient of a mail, as feedback from the receiving side
+     * would have (`bounced`, `complained`, `sent`, `failed`). It shows in the domain's reputation.
+     */
+    public function markRecipient(string $mailId, string $address, string $status, ?string $detail = null): static
+    {
+        foreach ($this->mails as $bucket => $mails) {
+            $mail = $mails[$mailId] ?? null;
+
+            if ($mail !== null) {
+                $this->mails[$bucket][$mailId] = new Mail(
+                    $mail->id, $mail->status, $mail->from, $mail->subject, $mail->createdAt, $mail->reason, $mail->verdicts,
+                    array_map(static fn (MailRecipient $recipient): MailRecipient => strtolower($recipient->address) === strtolower($address)
+                        ? new MailRecipient($recipient->address, $recipient->type, $status, $detail)
+                        : $recipient, $mail->recipients),
+                    $mail->sentAt,
                 );
             }
         }

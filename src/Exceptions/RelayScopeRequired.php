@@ -8,7 +8,9 @@ use Cbox\Relay\Client\Data\Problem;
 use Throwable;
 
 /**
- * The call acts for one scope and none was named, so nothing was sent. Name it with
+ * The call acts for one scope and none was named. The manager throws this before
+ * anything is sent; called on the transport directly, it is Relay's 422 with the type
+ * `scope_required` (then `$problem` is set). Name the scope with
  * `Relay::forScope($ref)` or `relay.scope`; with a scope key, which is already locked
  * to its scope, set `relay.scope_key` to true instead.
  */
