@@ -10,6 +10,8 @@ use DateTimeImmutable;
  * A mail Relay stored and what became of it. `$status` is Relay's own string: `queued`,
  * `sent` (handed to the mail server, which is not the same as delivered to an inbox),
  * `quarantined`, `blocked` or `failed`. `$reason` says why it was held, blocked or failed.
+ * `$tracksClicks` says whether the links in its HTML go through Relay: the answer the mail
+ * was accepted with, from the mail itself or else its sending domain.
  */
 readonly class Mail
 {
@@ -27,6 +29,7 @@ readonly class Mail
         public array $verdicts = [],
         public array $recipients = [],
         public ?DateTimeImmutable $sentAt = null,
+        public bool $tracksClicks = false,
     ) {}
 
     /**
@@ -34,6 +37,8 @@ readonly class Mail
      */
     public static function fromArray(array $data): self
     {
+        $tracking = Payload::nullableMap($data, 'tracking');
+
         return new self(
             id: Payload::string($data, 'id'),
             status: Payload::string($data, 'status'),
@@ -44,6 +49,7 @@ readonly class Mail
             verdicts: Payload::numberMap($data, 'verdicts'),
             recipients: array_map(MailRecipient::fromArray(...), Payload::maps($data, 'recipients')),
             sentAt: Payload::nullableDate($data, 'sent_at'),
+            tracksClicks: $tracking !== null && Payload::bool($tracking, 'clicks'),
         );
     }
 

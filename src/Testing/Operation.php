@@ -62,6 +62,7 @@ enum Operation: string
     case ListDomains = 'list_domains';
     case CreateDomain = 'create_domain';
     case FindDomain = 'find_domain';
+    case UpdateDomain = 'update_domain';
     case VerifyDomain = 'verify_domain';
     case DomainReputation = 'domain_reputation';
     case DeleteDomain = 'delete_domain';

@@ -7,6 +7,7 @@ namespace Cbox\Relay\Client;
 use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\DomainReputation;
 use Cbox\Relay\Client\Data\SendingDomain;
+use Cbox\Relay\Client\Data\TrackingChanges;
 
 /** The domains a project sends mail from. Reached through `Relay::domains()`. */
 class Domains
@@ -39,6 +40,26 @@ class Domains
     public function verify(string $id): SendingDomain
     {
         return $this->transport->verifyDomain($id, $this->project->required());
+    }
+
+    /**
+     * Turn click tracking on or off for the domain: every mail from it follows, unless a
+     * mail says otherwise. With it on, the `http` and `https` links in a mail's HTML go
+     * through Relay, which records the click and sends the reader on. Opens are not tracked.
+     */
+    public function trackClicks(string $id, bool $clicks = true): SendingDomain
+    {
+        return $this->transport->updateDomain($id, new TrackingChanges(clicks: $clicks), $this->project->required());
+    }
+
+    /**
+     * Change the domain's click tracking: on or off, and the host tracked links are
+     * written on. A host of the domain's own is a CNAME to Relay's tracking host; the
+     * record to publish is in the answer's `$records` with the purpose `tracking`.
+     */
+    public function tracking(string $id, TrackingChanges $changes): SendingDomain
+    {
+        return $this->transport->updateDomain($id, $changes, $this->project->required());
     }
 
     /** How the mail this project sent from the domain fared lately: the numbers Relay's automatic pause looks at. */

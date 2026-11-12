@@ -130,8 +130,10 @@ other type (your own events come back in `$webhook->data`). All are in
 | `mail.received` | `MailReceived` | `id`, `projectId`, `recipient`, `envelopeFrom`, `from`, `subject`, `kind`, `autoReply`, `attachments`, `size`, `receivedAt` |
 | `mail.accepted` | `MailAccepted` | `id`, `projectId`, `from`, `recipients`, `suppressed`, `status`, `reason` |
 | `mail.blocked` | `MailBlocked` | the same |
+| `mail.delivered` | `MailDelivered` | `id`, `projectId`, `recipient`. The recipient's server accepted the mail; it says nothing about inbox or junk |
 | `mail.bounced` | `MailBounced` | `id`, `projectId`, `recipient`, `permanent`, `status`, `diagnostic` |
 | `mail.complained` | `MailComplained` | `id`, `projectId`, `recipient` |
+| `mail.clicked` | `MailClicked` | `id`, `projectId`, `linkId`, `url`, `clickedAt`. No recipient: every recipient of a mail gets the same link |
 | `push.delivered` | `PushDelivered` | `id`, `projectId`, `subscriptionId`, `externalRef`, `attempts` |
 | `push.expired` | `PushExpired` | the same |
 | `endpoint.disabled` | `EndpointDisabled` | `endpointId`, `projectId`, `reason` |

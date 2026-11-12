@@ -1,15 +1,14 @@
 ---
 title: Outbound mail
-description: Sending domains, the suppression list, Relay::sendMail() and the relay mail transport for Laravel's mailer.
+description: Sending domains, click tracking, the suppression list, Relay::sendMail() and the relay mail transport for Laravel's mailer.
 weight: 31
 ---
 
 # Outbound mail
 
-> This package hands mail to Relay's API. Relay's API guide says its mail servers are
-> not running yet, so today **no mail leaves Relay**: a mail is stored, filtered and
-> queued, and that is where it stops. See Relay's own status for when that changes.
-> Nothing on this page needs to change when it does.
+> This package hands mail to Relay's API; Relay's own mail servers do the delivering.
+> The package's tests run against the API description and the fake, not against a
+> running Relay.
 
 ## Sending domains
 
@@ -19,7 +18,7 @@ $domains = Relay::forProject($ref)->domains();
 $domain = $domains->register('acme.dk');
 
 foreach ($domain->records as $record) {
-    $record->purpose;    // 'dkim', 'spf' or 'dmarc'
+    $record->purpose;    // 'dkim', 'spf', 'dmarc', or 'tracking' (see click tracking below)
     $record->type; $record->name; $record->value;
     $record->required;   // only the DKIM record is
 }
@@ -42,6 +41,55 @@ A domain can send once its status is `verified`. A verified domain whose record 
 gone becomes `failed`. Each project proves a domain for itself.
 
 Needs `domains:manage`.
+
+## Click tracking
+
+Off until you turn it on. With it on, the `http` and `https` links in the HTML of a
+mail go through Relay, which records the click and sends the reader on to the address
+you wrote. Opens are not tracked.
+
+```php
+use Cbox\Relay\Client\Data\TrackingChanges;
+
+$domain = $domains->trackClicks($domain->id);          // on for every mail from the domain
+$domain = $domains->trackClicks($domain->id, false);   // off again
+
+$domain->tracking->clicks;   // bool
+$domain->tracking->host;     // the domain's own host for the links, or null for Relay's shared host
+```
+
+A mail can say otherwise, whatever its domain says. Left out, the domain decides:
+
+```php
+new OutgoingMail(from: …, to: …, subject: …, html: …, trackClicks: true);
+
+$mail->tracksClicks;   // the answer the mail was accepted with
+```
+
+A host of your own for the links is a CNAME to Relay's tracking host. Name it, publish
+the record with the purpose `tracking` from the answer, and verify the domain again:
+
+```php
+$domain = $domains->tracking($domain->id, new TrackingChanges(clicks: true, host: 'links.acme.dk'));
+$domain = $domains->tracking($domain->id, new TrackingChanges(clearHost: true));   // back to the shared host
+```
+
+Only what you set in `TrackingChanges` is sent, and only that changes. Whether links
+are actually written on your own host is Relay's decision; until it serves customers'
+hosts, links use its shared host even when your record is in place.
+
+What to know before you rely on it:
+
+- A click names the mail and the link, **not the recipient**: every recipient of a mail
+  gets the same link. Send one mail per recipient when you need to know who clicked.
+- Only links in the HTML part are rewritten. The text part, `mailto:` and `tel:` links,
+  the address in `List-Unsubscribe`, and a link with the attribute
+  `data-relay-track="off"` are left alone.
+- A mail scanner that follows every link looks like a click. Relay reports the same link
+  at most once a minute.
+- The click arrives as the event [`mail.clicked`](incoming-webhooks.md).
+
+Changing a domain's tracking needs `domains:manage`.
 
 ## The suppression list
 
@@ -168,12 +216,17 @@ second Reply-To, every header outside the allowed set (`Sender`, `Return-Path`, 
 ones without `X-`), and the inline placement of an embedded image, which goes as an
 ordinary attachment.
 
-Two headers steer one send and are never passed on:
+Three headers steer one send and are never passed on:
 
 ```php
 $message->getHeaders()->addTextHeader('X-Relay-Project', $workspace->id);              // send for this project
 $message->getHeaders()->addTextHeader('X-Relay-Idempotency-Key', "invoice:{$id}");   // the Idempotency-Key
+$message->getHeaders()->addTextHeader('X-Relay-Track-Clicks', 'false');              // click tracking for this mail alone
 ```
+
+`X-Relay-Track-Clicks` takes `true` or `false` (also `1`/`0`, `yes`/`no`, `on`/`off`).
+Anything else throws a `TransportException` and nothing is sent. Without the header the
+sending domain's setting decides.
 
 The project is, in order: the `X-Relay-Project` header, the mailer's `project`, `relay.project`.
 With none (and no `relay.project_key`) the send throws `RelayProjectRequired`.

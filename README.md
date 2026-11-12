@@ -7,11 +7,12 @@ products; this package is how a Laravel app talks to its API.
   retries it, with an idempotency key so a retry publishes once.
 - **Webhook endpoints.** Declare event types; register, pause, rotate, ping and replay
   endpoints; read events and what became of each delivery.
-- **Mail.** Sending domains, the suppression list, `Relay::sendMail()`, and a `relay`
-  mail transport so `MAIL_MAILER=relay` works.
+- **Mail.** Sending domains, click tracking per domain or per mail, the suppression
+  list, `Relay::sendMail()`, and a `relay` mail transport so `MAIL_MAILER=relay` works.
 - **Web Push.** The project's key, browser subscriptions, `Relay::push()`, and a Laravel
   notification channel.
-- **Inbound mail.** Claim addresses, read received mail, erase it.
+- **Inbound mail.** Claim one address, a whole domain, or an address of Relay's that
+  yours forwards to; read received mail, erase it.
 - **The judge.** Score a mail or a template without sending it.
 - **Inbound webhooks.** Sources that take a provider's webhooks for a project.
 - **Erasure.** Publish with a `subject`; `Relay::eraseSubject()` forgets that person.

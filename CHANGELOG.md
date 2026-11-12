@@ -5,6 +5,25 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Click tracking.** `Relay::domains()->trackClicks($id)` and `->tracking($id, new
+  TrackingChanges(…))` turn it on or off for a sending domain and name a host of its own
+  for the links (`PATCH /v1/domains/{id}`); `SendingDomain::$tracking` reads it back, and
+  a record with the purpose `tracking` appears in `$records`. One mail can say otherwise
+  with `OutgoingMail::$trackClicks`, or with the header `X-Relay-Track-Clicks` through the
+  `relay` mail transport; `Mail::$tracksClicks` is the answer it was accepted with.
+- **`mail.clicked`** as `Webhooks\Events\MailClicked` (`id`, `projectId`, `linkId`, `url`,
+  `clickedAt`). It names no recipient.
+- **`mail.delivered`** as `Webhooks\Events\MailDelivered` (`id`, `projectId`, `recipient`): the
+  recipient's server accepted the mail. It says nothing about inbox or junk.
+- **One receiving address.** `Relay::inboundRoutes()->registerAddress('support@acme.dk')`
+  and `->registerForwarding('billing@acme.dk')`, which gets an address of Relay's that
+  yours forwards to. `InboundRouteType::Address`, `InboundRoute::$address` and
+  `$forwardFor`.
+- **The fake** follows: `seedTracking()`, `assertDomainTracksClicks()`, single and
+  forwarding addresses, and `Operation::UpdateDomain`.
+
 ### Changed
 
 - **Breaking: a scope is called a project**, as in Relay itself and the other Cbox apps.
@@ -15,6 +34,12 @@ All notable changes to this package are documented here. The format follows
   mail header `X-Relay-Project`, and the fake's `seedProject()` and `assertProjectPut()`.
   There are no aliases for the old names. The webhook envelope still carries the owner
   under `scope`: that is the envelope's own field.
+- **Breaking for your own `Contracts\RelayTransport`:** the contract gained
+  `updateDomain()`, and `createInboundRoute()` takes a nullable `$domain` and two more
+  arguments at the end (`$localPart`, `$forwardFor`). Code that calls
+  `Relay::inboundRoutes()->register()` is unaffected.
+- The fake's verification record for a domain route is now named `_relay-challenge.<domain>`,
+  as Relay's is, and a route that became active no longer carries one.
 
 ## [0.1.0] - 2026-11-12
 

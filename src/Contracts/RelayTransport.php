@@ -36,6 +36,7 @@ use Cbox\Relay\Client\Data\Source;
 use Cbox\Relay\Client\Data\SourceScheme;
 use Cbox\Relay\Client\Data\Suppression;
 use Cbox\Relay\Client\Data\SuppressionReason;
+use Cbox\Relay\Client\Data\TrackingChanges;
 use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Relay;
 use DateTimeInterface;
@@ -213,8 +214,11 @@ interface RelayTransport
      */
     public function listInboundRoutes(?string $project = null): array;
 
-    /** `POST /v1/inbound/routes` */
-    public function createInboundRoute(InboundRouteType $type, string $domain, ?string $prefix = null, ?string $idempotencyKey = null, ?string $project = null): InboundRoute;
+    /**
+     * `POST /v1/inbound/routes`. `$localPart` is for the type `address`; with `$forwardFor`
+     * and no `$domain`, Relay makes an address of its own that stands in for that one.
+     */
+    public function createInboundRoute(InboundRouteType $type, ?string $domain = null, ?string $prefix = null, ?string $idempotencyKey = null, ?string $project = null, ?string $localPart = null, ?string $forwardFor = null): InboundRoute;
 
     /** `POST /v1/inbound/routes/{id}/verify`: the route as it is now, verified or not. */
     public function verifyInboundRoute(string $id, ?string $project = null): InboundRoute;
@@ -277,6 +281,9 @@ interface RelayTransport
 
     /** `GET /v1/domains/{id}`; null when Relay answers 404. */
     public function findDomain(string $id, ?string $project = null): ?SendingDomain;
+
+    /** `PATCH /v1/domains/{id}`: the domain with its click tracking changed. */
+    public function updateDomain(string $id, TrackingChanges $tracking, ?string $project = null): SendingDomain;
 
     /** `POST /v1/domains/{id}/verify`: the domain as it is now, verified or not. */
     public function verifyDomain(string $id, ?string $project = null): SendingDomain;
