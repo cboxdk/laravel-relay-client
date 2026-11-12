@@ -279,6 +279,12 @@ class Relay
         return new Suppressions($this->transport, $this->acting);
     }
 
+    /** How much the project may send, and asking for more. The key needs the ability `limits:request`. */
+    public function sendingLimits(): SendingLimits
+    {
+        return new SendingLimits($this->transport, $this->acting);
+    }
+
     /**
      * Hand a mail to Relay. `$mail->status` on the answer says what happens next:
      * `queued`, `scheduled` (it waits for `sendAt`), `blocked` (every recipient is

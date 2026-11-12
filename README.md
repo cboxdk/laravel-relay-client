@@ -26,6 +26,9 @@ products; this package is how a Laravel app talks to its API.
 - **Commands.** `relay:install`, `relay:doctor`, `relay:ping`, `relay:tail`, and a health
   check for cboxdk/laravel-health.
 - **Several connections.** More than one key from one app: `Relay::connection('billing')`.
+- **Sending limits and holds.** `Relay::sendingLimits()` reads how much a project may send
+  and asks for more; a refusal for a limit says whose limit it was and how long to wait;
+  a mail says whether the project or Relay's own guard holds it.
 - **Projects, whoami, the delivery log**, typed errors, and **a fake** for your tests.
 
 The client covers Relay's API. Relay's mail servers run since 12 November 2026: mail sent

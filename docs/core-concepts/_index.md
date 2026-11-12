@@ -21,3 +21,4 @@ weight: 20
 - [Inbound webhooks](inbound-webhooks.md): sources that take a provider's webhooks for a project
 - [Local delivery status](delivery-status.md): the optional store of sent mail and its events
 - [Connections](connections.md): more than one key from one app
+- [Sending limits and holds](sending-limits.md): how much a project may send, asking for more, and mail Relay's guard holds

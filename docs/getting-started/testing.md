@@ -107,12 +107,40 @@ $relay->assertMailSentTimes(1);
 $relay->assertNoMailSent();
 ```
 
-A held mail: `markMail($id, 'quarantined', $reason)` holds one, then
+A held mail: `markMail($id, 'quarantined', $reason)` holds one as the project's own
+threshold does, then
 
 ```php
 $relay->assertMailReleased($mail->id);
 $relay->assertMailDiscarded($mail->id);
 ```
+
+`holdMailByRelay($id, $reason)` holds one as Relay's own guard does: `Mail::$heldBy` is
+`relay`, a discard works and a release throws `RelayForbidden` (`mail_held_by_relay`).
+
+Sending limits. A project has Relay's starting limits (500 an hour, 5,000 a day) and
+nothing is refused until you say so:
+
+```php
+$relay->limitSending('ws_1');                              // every mail: 429 sending_limited, scope 'project'
+$relay->limitSending('ws_1', 'organization', retryAfter: 900);
+$relay->limitSending();                                    // for every project
+$relay->liftSendingLimit('ws_1');
+
+$relay->seedSendingLimits('ws_1', hour: 100, day: 1000);   // real counting: the 101st recipient in an hour is refused
+
+$request = Relay::forProject('ws_1')->sendingLimits()->request(1500, 12000, 'Invoices to our customers.');
+$relay->decideSendingLimitRequest($request->id, approve: true, hour: 1200);   // as Relay's operator would
+$relay->grantLimitRequestsAtOnce();                        // or grant every request at once
+
+$relay->assertSendingLimitRequested(fn (SendingLimitRequest $request): bool => $request->hour === 1500);
+$relay->assertNoSendingLimitRequested();
+```
+
+A mail keeps the idempotency key it was sent with, so `MailFilter::idempotencyKey()` and
+`MailFilter::metadata()` find it, and a second send with the same key and other content
+throws `RelayConflict` whose `mailId()` is the first mail. A registered domain's records
+say `unchecked` until `verify`, then `found` or `missing` as `dnsPublished()` says.
 
 A scheduled mail: send with a `sendAt` in the future, then `Relay::cancelMail($id)` and
 

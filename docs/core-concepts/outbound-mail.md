@@ -42,6 +42,10 @@ gone becomes `failed`. Each project proves a domain for itself.
 
 Needs `domains:manage`.
 
+Each record carries `status`: what Relay found when it last looked (`found`, `missing`,
+`different` when something else is published there, or `unchecked`), so you can show which
+record is still missing. `$record->found()` is the short form.
+
 ## Click tracking
 
 Off until you turn it on. With it on, the `http` and `https` links in the HTML of a
@@ -229,7 +233,9 @@ $page->nextCursor;   // pass back as cursor: for the next page; null on the last
 ```
 
 Newest first. `MailFilter` also takes `from`, `createdAfter` and `createdBefore`; every
-part narrows and none is required.
+part narrows and none is required. `MailFilter::idempotencyKey('order-7')` finds the mail
+a key was accepted with, and `MailFilter::metadata('order', '7')` the mail sent with one
+metadata pair.
 
 ### A held mail
 
@@ -256,6 +262,12 @@ deciding hears about it. A mail the project does not have throws `RelayNotFound`
 
 A held mail nobody decides on keeps its content for 30 days like any other and then
 stays as it is, unsent. That is Relay's retention, not this package's.
+
+`Mail::$heldBy` says who holds it. The above is for `project`, a threshold of the project's
+own. A mail held by `relay`, Relay's own guard against abuse, can be discarded but not
+released: `releaseMail()` then throws `RelayForbidden` with the type `mail_held_by_relay`.
+See [sending limits and holds](sending-limits.md), which also covers the limit on how
+many recipients a project may send to.
 
 ### Headers
 

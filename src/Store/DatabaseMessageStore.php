@@ -25,7 +25,11 @@ class DatabaseMessageStore implements MessageStore
     /** The events that are about one outbound mail, and the status each leaves on it. */
     public const array STATUS = [
         'mail.accepted' => null,
+        // `blocked` unless the event says the mail is only held: then `quarantined`.
         'mail.blocked' => 'blocked',
+        // Let go: on its way again (`scheduled` when its time has not come).
+        'mail.released' => 'queued',
+        'mail.discarded' => 'blocked',
         'mail.delivered' => 'delivered',
         // Not an end: the mail is still on its way.
         'mail.deferred' => null,
@@ -108,7 +112,11 @@ class DatabaseMessageStore implements MessageStore
                 'mail.opened' => 'opened',
                 default => null,
             };
-            $status = self::STATUS[$webhook->type];
+            $status = match (true) {
+                $webhook->type === 'mail.blocked' && ($webhook->data['state'] ?? null) === 'held' => 'quarantined',
+                $webhook->type === 'mail.released' && ($webhook->data['status'] ?? null) === 'scheduled' => 'scheduled',
+                default => self::STATUS[$webhook->type],
+            };
             $changes = ['last_event_at' => $webhook->occurredAt ?? $message->freshTimestamp()];
 
             if ($status !== null && self::RANK[$status] >= (self::RANK[$message->status] ?? 0)) {

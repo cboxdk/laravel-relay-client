@@ -48,6 +48,17 @@ against a live Relay.
   and the typed events `mail.opened` and `mail.deferred`. The mail transport carries a
   mailable's tags, metadata and embedded images, and takes `X-Relay-Track-Opens` and
   `X-Relay-Send-At`.
+- Sending limits and holds (0.2.1): `Relay::sendingLimits()` (`current()`, `request()`,
+  `requests()`, `findRequest()`) through `Contracts\SendingLimitsTransport`, which sits
+  beside `RelayTransport` so a transport written against 0.2.0 keeps working;
+  `RelayRateLimited::sendingLimited()` and `scope()`, `RelayConflict::mailId()`,
+  `RelayForbidden::heldByRelay()`, `Problem::$extensions`; `Mail::$heldBy` and
+  `$idempotencyKey`; `MailFilter::idempotencyKey()` and `::metadata()`;
+  `DnsRecord::$status`; `state` and `heldBy` on `MailAccepted` and `MailBlocked`, `cause`
+  on `ProjectOutboundPaused`, and the typed events `MailReleased`, `MailDiscarded`,
+  `ProjectOutboundLimited`, `ProjectOutboundWatched`, `ProjectOutboundLimitsChanged`,
+  `ProjectLimitRequested` and `ProjectLimitRequestDecided` with their Laravel wrappers.
+  The local store follows held, released and discarded mail. Not run against a live Relay.
 - `Relay::publish()` through `Contracts\EventPublisher`: `Jobs\PublishEvent` queued after
   commit with a generated idempotency key, its retry rules (permanent on 403, 404, 413,
   422; `Retry-After` on 429; backoff otherwise), `relay.publish.sync`, `publishNow()` and

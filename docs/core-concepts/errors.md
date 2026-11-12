@@ -13,12 +13,12 @@ an exception; all of them extend `Cbox\Relay\Client\Exceptions\RelayException`.
 | Answer | Exception | Carries |
 |--------|-----------|---------|
 | 401 | `RelayUnauthorized` | bad or revoked key |
-| 403 | `RelayForbidden` | the key lacks an ability |
+| 403 | `RelayForbidden` | the key lacks an ability. `->heldByRelay()` when a release was refused because Relay's own guard holds the mail |
 | 404 | `RelayNotFound` | every `find()`, `judgment()`, `mail()` and `pushMessage()` returns `null` instead; a missing *project* (type `project_not_found`) is still thrown |
-| 409 | `RelayConflict` | `->type()` says which: `idempotency_key_reused`, `idempotency_in_progress` or `mail_not_held` |
+| 409 | `RelayConflict` | `->type()` says which: `idempotency_key_reused` (`->mailId()` is then the mail the first call accepted, when it was one), `idempotency_in_progress`, `mail_not_held` or `limit_request_open` |
 | 413 | `RelayTooLarge` | the body is too large (an event payload may be 256 KB) |
 | 422 | `RelayInvalid` | `->errors` (`array<string, list<string>>`), `->errorsFor($field)` |
-| 429 | `RelayRateLimited` | `->retryAfter` (seconds, or `null`) |
+| 429 | `RelayRateLimited` | `->retryAfter` (seconds, or `null`). `->sendingLimited()` when it is a [sending limit](sending-limits.md) rather than the key's rate limit, with `->scope()` `project` or `organization` |
 | 5xx, timeout, no connection | `RelayUnavailable` | the cause as `getPrevious()` for connection errors |
 | any other status | `RelayException` | |
 | no `RELAY_URL` or `RELAY_KEY` | `RelayNotConfigured` | nothing was sent |

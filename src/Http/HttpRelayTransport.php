@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Http;
 
 use Cbox\Relay\Client\Contracts\RelayTransport;
+use Cbox\Relay\Client\Contracts\SendingLimitsTransport;
 use Cbox\Relay\Client\Data\BrowserSubscription;
 use Cbox\Relay\Client\Data\Delivery;
 use Cbox\Relay\Client\Data\DeliveryFilter;
@@ -36,6 +37,8 @@ use Cbox\Relay\Client\Data\PushMessage;
 use Cbox\Relay\Client\Data\PushSubscription;
 use Cbox\Relay\Client\Data\PushUrgency;
 use Cbox\Relay\Client\Data\SendingDomain;
+use Cbox\Relay\Client\Data\SendingLimitRequest;
+use Cbox\Relay\Client\Data\SendingLimits;
 use Cbox\Relay\Client\Data\Source;
 use Cbox\Relay\Client\Data\SourceScheme;
 use Cbox\Relay\Client\Data\Suppression;
@@ -61,7 +64,7 @@ use stdClass;
  * is one request; nothing is retried here (the queued publish retries on its own, see
  * {@see PublishEvent}).
  */
-class HttpRelayTransport implements RelayTransport
+class HttpRelayTransport implements RelayTransport, SendingLimitsTransport
 {
     public function __construct(
         private readonly RelayConfig $config,
@@ -457,6 +460,30 @@ class HttpRelayTransport implements RelayTransport
         return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/cancel', project: $project)));
     }
 
+    public function sendingLimits(?string $project = null): SendingLimits
+    {
+        return SendingLimits::fromArray($this->body($this->send('GET', '/v1/sending-limits', project: $project)));
+    }
+
+    public function createSendingLimitRequest(int $hour, int $day, string $reason, ?string $idempotencyKey = null, ?string $project = null): SendingLimitRequest
+    {
+        $body = ['hour' => $hour, 'day' => $day, 'reason' => $reason];
+
+        return SendingLimitRequest::fromArray($this->body($this->send('POST', '/v1/sending-limit-requests', body: $body, project: $project, idempotencyKey: $idempotencyKey)));
+    }
+
+    public function listSendingLimitRequests(?string $project = null): array
+    {
+        return $this->items($this->send('GET', '/v1/sending-limit-requests', project: $project), static fn (array $item): SendingLimitRequest => SendingLimitRequest::fromArray($item));
+    }
+
+    public function findSendingLimitRequest(string $id, ?string $project = null): ?SendingLimitRequest
+    {
+        $body = $this->find('/v1/sending-limit-requests/'.rawurlencode($id), $project);
+
+        return $body === null ? null : SendingLimitRequest::fromArray($body);
+    }
+
     private function endpointAction(string $id, string $action, ?string $project): Endpoint
     {
         return Endpoint::fromArray($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/'.$action, project: $project)));
@@ -495,7 +522,7 @@ class HttpRelayTransport implements RelayTransport
     }
 
     /**
-     * @param  array<string, string>  $query
+     * @param  array<string, string|array<string, string>>  $query
      * @param  array<string, mixed>|null  $body  null sends no body at all
      */
     private function send(string $method, string $path, array $query = [], ?array $body = null, ?string $project = null, ?string $idempotencyKey = null): Response

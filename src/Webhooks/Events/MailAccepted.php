@@ -11,6 +11,7 @@ use Cbox\Relay\Client\Webhooks\RelayEvent;
  * `mail.accepted`: an outbound mail was stored and queued for sending.
  * `$id` is the mail's (`Relay::mail($event->id)`), `$recipients` how many it was
  * addressed to and `$suppressed` how many of them are on the suppression list.
+ * `$state` is `accepted` (null on an event from before Relay sent it) and `$heldBy` null.
  */
 readonly class MailAccepted implements RelayEvent
 {
@@ -28,6 +29,8 @@ readonly class MailAccepted implements RelayEvent
         public ?string $reason = null,
         public array $tags = [],
         public array $metadata = [],
+        public ?string $state = null,
+        public ?string $heldBy = null,
     ) {}
 
     public static function type(): string
@@ -47,6 +50,8 @@ readonly class MailAccepted implements RelayEvent
             reason: Payload::nullableString($data, 'reason'),
             tags: Labels::tags($data),
             metadata: Labels::metadata($data),
+            state: Payload::nullableString($data, 'state'),
+            heldBy: Payload::nullableString($data, 'held_by'),
         );
     }
 }

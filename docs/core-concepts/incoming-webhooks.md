@@ -89,10 +89,13 @@ Each verified delivery is dispatched as one Laravel event:
 |----------|---------------|-----------------|
 | `mail.received` | `Webhooks\Received\MailReceived` | `Webhooks\Events\MailReceived` |
 | `mail.accepted`, `mail.blocked` | `Received\MailAccepted`, `Received\MailBlocked` | the typed data |
+| `mail.released`, `mail.discarded` | `Received\MailReleased`, `Received\MailDiscarded` | the typed data |
 | `mail.delivered`, `mail.deferred`, `mail.bounced`, `mail.complained` | `Received\MailDelivered`, `Received\MailDeferred`, `Received\MailBounced`, `Received\MailComplained` | the typed data |
 | `mail.clicked`, `mail.opened` | `Received\MailClicked`, `Received\MailOpened` | the typed data |
 | `push.delivered`, `push.expired` | `Received\PushDelivered`, `Received\PushExpired` | the typed data |
 | `endpoint.disabled`, `project.outbound_paused` | `Received\EndpointDisabled`, `Received\ProjectOutboundPaused` | the typed data |
+| `project.outbound_limited`, `project.outbound_watched`, `project.outbound_limits_changed` | `Received\ProjectOutboundLimited`, `Received\ProjectOutboundWatched`, `Received\ProjectOutboundLimitsChanged` | the typed data |
+| `project.limit_requested`, `project.limit_request_decided` | `Received\ProjectLimitRequested`, `Received\ProjectLimitRequestDecided` | the typed data |
 | anything else | `Received\OtherEventReceived` | none: read `$event->webhook->type` and `->data` |
 
 ```php
@@ -192,8 +195,10 @@ other type (your own events come back in `$webhook->data`). All are in
 | Type | Class | Carries |
 |------|-------|---------|
 | `mail.received` | `MailReceived` | `id`, `projectId`, `recipient`, `envelopeFrom`, `from`, `subject`, `kind`, `autoReply`, `attachments`, `size`, `receivedAt` |
-| `mail.accepted` | `MailAccepted` | `id`, `projectId`, `from`, `recipients`, `suppressed`, `status`, `reason` |
-| `mail.blocked` | `MailBlocked` | the same |
+| `mail.accepted` | `MailAccepted` | `id`, `projectId`, `from`, `recipients`, `suppressed`, `status`, `reason`, `state` (`accepted`), `heldBy` (null) |
+| `mail.blocked` | `MailBlocked` | the same, with `state` `held` (it waits and may be let go) or `blocked` (never sent) and `heldBy` `project` or `relay`. Also sent when a mail is held after it was accepted. `held()` and `heldByRelay()` are the short forms |
+| `mail.released` | `MailReleased` | `id`, `projectId`, `by` (`project`, `operator`, or `relay` when Relay's second look found nothing wrong), `status` (`queued` or `scheduled`) |
+| `mail.discarded` | `MailDiscarded` | `id`, `projectId`, `by` (`project`) |
 | `mail.delivered` | `MailDelivered` | `id`, `projectId`, `recipient`. The recipient's server accepted the mail; it says nothing about inbox or junk |
 | `mail.deferred` | `MailDeferred` | `id`, `projectId`, `recipient`, `status` (the server's code, or null), `diagnostic`. The server did not take the mail now and Relay tries again; at most once an hour per recipient |
 | `mail.bounced` | `MailBounced` | `id`, `projectId`, `recipient`, `permanent`, `status`, `diagnostic` |
@@ -203,7 +208,15 @@ other type (your own events come back in `$webhook->data`). All are in
 | `push.delivered` | `PushDelivered` | `id`, `projectId`, `subscriptionId`, `externalRef`, `attempts` |
 | `push.expired` | `PushExpired` | the same |
 | `endpoint.disabled` | `EndpointDisabled` | `endpointId`, `projectId`, `reason` |
-| `project.outbound_paused` | `ProjectOutboundPaused` | `projectId`, `reason`, `sent`, `bounced`, `complained` |
+| `project.outbound_paused` | `ProjectOutboundPaused` | `projectId`, `reason`, `cause` (`rates`, `bounces` or `held_mail`), and for `rates` `sent`, `bounced`, `complained` |
+| `project.outbound_limited` | `ProjectOutboundLimited` | `projectId`, `scope` (`project` or `organization`), `window` (`hour` or `day`), `limit`, `used`. Once an hour at most |
+| `project.outbound_watched` | `ProjectOutboundWatched` | `projectId`, `reason`, `cause` (`spike` or `signals`). Not a pause: the probation pool, and some mail is held for a look |
+| `project.outbound_limits_changed` | `ProjectOutboundLimitsChanged` | `projectId`, `origin` (`auto`, `request`, `operator`), `hour`, `day`, `previousHour`, `previousDay`, `reason` |
+| `project.limit_requested` | `ProjectLimitRequested` | `projectId`, `requestId`, `hour`, `day` |
+| `project.limit_request_decided` | `ProjectLimitRequestDecided` | `projectId`, `requestId`, `status` (`approved`, `declined`), `hour`, `day` (null when declined), `reason`, `decidedBy` (`auto`, `operator`) |
+
+`state`, `heldBy`, `cause` and `scope` are null (or `project` for `scope`) on a delivery
+from before Relay sent them.
 
 Every event about a sent mail (all of `mail.*` except `mail.received`) also carries
 `tags` and `metadata`: what the mail was sent with, empty when it had none. So a listener

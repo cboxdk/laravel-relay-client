@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Testing;
 
 use Cbox\Relay\Client\Contracts\RelayTransport;
+use Cbox\Relay\Client\Contracts\SendingLimitsTransport;
 use Cbox\Relay\Client\Data\ApiKey;
 use Cbox\Relay\Client\Data\AttemptOutcome;
 use Cbox\Relay\Client\Data\Delivery;
@@ -23,6 +24,7 @@ use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
 use Cbox\Relay\Client\Testing\Concerns\FakesInbound;
 use Cbox\Relay\Client\Testing\Concerns\FakesJudge;
+use Cbox\Relay\Client\Testing\Concerns\FakesLimits;
 use Cbox\Relay\Client\Testing\Concerns\FakesMail;
 use Cbox\Relay\Client\Testing\Concerns\FakesPush;
 use Cbox\Relay\Client\Testing\Concerns\FakesSources;
@@ -42,10 +44,11 @@ use PHPUnit\Framework\Assert;
  * Where the fake has to decide something the API description leaves open, the choice is
  * listed in the testing docs (docs/getting-started/testing.md).
  */
-class FakeRelay implements RelayTransport
+class FakeRelay implements RelayTransport, SendingLimitsTransport
 {
     use FakesInbound;
     use FakesJudge;
+    use FakesLimits;
     use FakesMail;
     use FakesPush;
     use FakesSources;
