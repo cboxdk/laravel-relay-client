@@ -81,12 +81,17 @@ $relay->assertNothingPublished();
 | `assertNothingPublished()` | No event at all. |
 | `assertEventTypesDeclared(array $types, ?string $scope = null)` | The scope's declared types are exactly these names. |
 | `assertEndpointRegistered(string $url, ?callable $where = null)` | An endpoint with that URL exists; `$where` gets the `Endpoint`. |
+| `assertSubjectErased(string $subject, ?string $scope = null)` | An erasure was asked for that subject (for that scope). |
+| `assertNoSubjectErased()` | No erasure at all. |
+| `assertSourceRegistered(string $name, ?callable $where = null)` | A source with that name exists; `$where` gets the `Source` and its current secret. |
+| `assertNoSourceRegistered()` | No source exists. |
 
 `published(?string $type = null): list<NewEvent>` gives the events themselves.
 
 Helpers: `seedEndpoint(string $scope, string $url = …, array $eventTypes = ['*'], string $status = 'active')`,
 `markWebhookDelivery(string $id, string $status, ?int $responseCode = null, ?string $error = null)`
-and `pingAnswers(PingResult $result)`.
+`pingAnswers(PingResult $result)` and
+`seedSource(string $scope, string $name, SourceScheme $scheme = StandardWebhooks, string $secret = …, string $status = 'active')`.
 
 To test the queued path itself (that a job is dispatched, on which queue), do not fake
 Relay: use `Bus::fake()` and assert on `Cbox\Relay\Client\Jobs\PublishEvent`.
@@ -107,8 +112,10 @@ so a mailable is asserted the same way. `sentMail(): list<OutgoingMail>` gives t
 
 Helpers: `seedDomain(string $scope, string $domain, string $status = 'verified')`,
 `seedSuppression(string $scope, string $address, SuppressionReason $reason = Manual, ?string $source = null)`,
-`markMail(string $id, string $status, ?string $reason = null)` and `dnsPublished(bool $published = true)`
-(whether a verify finds its DNS record; it does by default).
+`markMail(string $id, string $status, ?string $reason = null)`,
+`markRecipient(string $mailId, string $address, string $status, ?string $detail = null)`
+and `dnsPublished(bool $published = true)` (whether a verify finds its DNS record; it
+does by default).
 
 ## Push
 
@@ -211,7 +218,7 @@ promises about the service.
 - A scope put without a name is named after its external ref.
 - A `Relay-Scope` that names no stored scope answers 404, unless `acceptAnyScope()`.
 - A scoped call *without* a scope is taken as a scope key's call and gets a place of
-  its own; the fake does not answer 422 for it.
+  its own; the fake does not answer Relay's 422 `scope_required` for it.
 - Acting for a scope narrows the delivery log and received mail to that scope and fills
   `whoami`'s `scope`; it does not change what the scope endpoints return.
 - The delivery log is newest first, `from` and `to` include their bounds, and nothing
@@ -229,8 +236,16 @@ promises about the service.
   endpoint, and `replay()` counts the stored events in the window.
 - An endpoint URL and a push endpoint must start with `https://`. Whether the host is
   public, or a push service Relay knows, is not checked.
-- A ping answers `PingResult('delivered', 200, 1)` unless `pingAnswers()` says otherwise.
-  `delivered` is the fake's word; the API description does not list the outcomes.
+- A ping answers `PingResult('success', 200, 1)` unless `pingAnswers()` says otherwise.
+- An erasure removes the stored events published with the subject in that scope and
+  their deliveries, and counts those; the fake keeps no attempts to count. What
+  `assertPublished()` saw stays seen.
+- A source's URL is a made-up `https://relay.test/fake/in/…`. A name is unique per
+  scope (a second one answers 422); the real service's answer for that is not described.
+  No provider call is ever taken and nothing is forwarded.
+- A domain's reputation counts the recipients of the scope's stored mail from that
+  domain that are `sent`, `bounced` or `complained`, over all time, with a window of 7.
+  Set them with `markMail()` and `markRecipient()`.
 - A push to a subscription the scope does not have answers 404; a payload over 3000
   bytes 422. Messages stay `queued` until `markPush()`.
 - A mail with every recipient suppressed is `blocked`, otherwise `queued`; it is never

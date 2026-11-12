@@ -13,6 +13,8 @@ products; this package is how a Laravel app talks to its API.
   notification channel.
 - **Inbound mail.** Claim addresses, read received mail, erase it.
 - **The judge.** Score a mail or a template without sending it.
+- **Inbound webhooks.** Sources that take a provider's webhooks for a scope.
+- **Erasure.** Publish with a `subject`; `Relay::eraseSubject()` forgets that person.
 - **Webhooks from Relay.** A `relay.webhook` middleware that verifies a delivery, and
   typed objects for Relay's own events.
 - **Scopes, whoami, the delivery log**, typed errors, and **a fake** for your tests.
@@ -58,8 +60,13 @@ $relay->eventTypes()->declare(['order.paid', 'order.refunded']);
 $endpoint = $relay->endpoints()->register('https://customer.example/hooks', ['order.*']);
 $endpoint->secret;   // given once
 
-$relay->publish('order.paid', ['id' => $order->id]);              // queued, after commit, retried
+$relay->publish('order.paid', ['id' => $order->id], subject: "contact_{$contact->id}");   // queued, after commit, retried
 $relay->publishNow('order.paid', ['id' => $order->id])->id;       // one HTTP call, now
+
+$relay->eraseSubject("contact_{$contact->id}")->removed;         // forget one person's events
+
+// Webhooks in
+$relay->sources()->register('stripe', SourceScheme::Stripe, $providerSecret)->url;
 
 // Mail
 $relay->sendMail(new OutgoingMail(new MailAddress('hello@acme.dk', 'Acme'), ['ann@example.com'], 'Your order', text: 'Thanks.'));

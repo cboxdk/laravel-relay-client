@@ -29,8 +29,10 @@ $me->scoped();       // whether the call acted for one scope
 - An **organization key** acts for the whole organization. It acts for one of its
   scopes by sending the `Relay-Scope` header with the scope's external ref or its
   `scp_…` id.
-- A **scope key** is locked to one scope and needs no header. Naming another scope
-  answers 403 (`RelayForbidden`, type `scope_locked`).
+- A **scope key** is locked to one scope and needs no header. It may name its own
+  scope; naming another answers 403 (`RelayForbidden`, type `scope_locked`).
+
+A scope Relay does not know answers 404 (`RelayNotFound`, type `scope_not_found`).
 
 The client does not know which kind `RELAY_KEY` is. Tell it with `relay.scope_key`
 (below) when it is a scope key.
@@ -51,9 +53,9 @@ overrides it for one client, `Relay::withoutScope()` removes it for one client.
 
 ## Calls that need a scope
 
-Most of the API only makes sense for one scope: publishing, endpoints, the judge, push,
-sending domains, suppressions and mail. With an organization key and no `Relay-Scope`,
-Relay answers those 422. The client does not let it get that far: a call that needs a
+Most of the API only makes sense for one scope: publishing, endpoints, sources, the
+judge, push, sending domains, suppressions and mail. With an organization key and no
+`Relay-Scope`, Relay answers those 422 with the type `scope_required`. The client does not let it get that far: a call that needs a
 scope throws `Cbox\Relay\Client\Exceptions\RelayScopeRequired` before anything is sent
 when neither `forScope()` nor `relay.scope` names one.
 
@@ -68,7 +70,9 @@ With a scope key, set `RELAY_SCOPE_KEY=true` (`relay.scope_key`). Relay already 
 the key's scope, so scoped calls go out without the header and nothing is thrown.
 
 The check lives in the `Relay` manager. Code that calls the `RelayTransport` contract
-directly passes its own `$scope` and gets Relay's 422 when it is missing.
+directly passes its own `$scope`; when it is missing, Relay's `scope_required` answer
+becomes the same `RelayScopeRequired`, then with `$e->problem` set. So one catch covers
+both.
 
 Never take the scope from user input without checking that the user belongs to that
 workspace: with an organization key, the value picks whose data is read. See the

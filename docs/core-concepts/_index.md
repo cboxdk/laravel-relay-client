@@ -1,6 +1,6 @@
 ---
 title: Core concepts
-description: The transport contract, authentication and scopes, publishing events, mail, push, the judge, webhooks from Relay and the typed errors.
+description: The transport contract, authentication and scopes, publishing events, mail, push, the judge, webhooks from and through Relay, and the typed errors.
 weight: 20
 ---
 
@@ -18,3 +18,4 @@ weight: 20
 - [Web Push](web-push.md): the key, subscriptions, messages and the notification channel
 - [Outbound mail](outbound-mail.md): domains, suppressions, sending and the mail transport
 - [Webhooks from Relay](incoming-webhooks.md): verify a delivery and read Relay's own events
+- [Inbound webhooks](inbound-webhooks.md): sources that take a provider's webhooks for a scope

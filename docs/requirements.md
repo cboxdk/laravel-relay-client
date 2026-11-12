@@ -44,5 +44,5 @@ extension beyond what Laravel itself requires. The HTTP client needs Guzzle, whi
   abilities for what you use: `scopes:manage`, `deliveries:read`, `events:publish`,
   `events:read`, `endpoints:manage`, `mail:send`, `domains:manage`,
   `suppressions:manage`, `push:send`, `push:manage`, `inbound:read`, `inbound:manage`,
-  `judge:run`.
+  `judge:run`, `sources:manage`.
 - A queue worker, for `Relay::publish()`.

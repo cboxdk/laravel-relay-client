@@ -14,7 +14,8 @@ API key, the public endpoint, nothing else.
 
 - **[Publishing events](core-concepts/publishing-events.md)**: `Relay::publish()` hands
   an event to a queued job that calls Relay after commit, with an idempotency key so a
-  retry publishes once. `publishNow()` and `publishBatch()` call inline.
+  retry publishes once. `publishNow()` and `publishBatch()` call inline. A `subject`
+  on an event lets `eraseSubject()` forget one person later.
 - **[Webhook endpoints](core-concepts/webhook-endpoints.md)**: declare event types,
   register, pause, rotate, ping and replay endpoints, read events and their deliveries.
 - **[Outbound mail](core-concepts/outbound-mail.md)**: sending domains, the suppression
@@ -26,6 +27,8 @@ API key, the public endpoint, nothing else.
 - **[The judge](core-concepts/judge.md)**: score a mail or a template without sending it.
 - **[Webhooks from Relay](core-concepts/incoming-webhooks.md)**: the `relay.webhook`
   middleware verifies a delivery, and Relay's own events arrive as typed objects.
+- **[Inbound webhooks](core-concepts/inbound-webhooks.md)**: sources that take a
+  provider's webhooks for a scope and forward them to your endpoints.
 - **[Authentication and scopes](core-concepts/authentication.md)**: `whoami()`,
   `forScope()`, and a clear exception when a call needs a scope and has none.
 - **[Scopes](core-concepts/scopes.md)** and **[the delivery log](core-concepts/deliveries.md)**.
@@ -61,7 +64,7 @@ written.
 ## Documentation
 
 - **Getting started**: [Requirements](requirements.md), [Installation](getting-started/installation.md), [Quickstart](quickstart.md), [Testing](getting-started/testing.md)
-- **Core concepts**: [Architecture](core-concepts/architecture.md), [Authentication](core-concepts/authentication.md), [Scopes](core-concepts/scopes.md), [Deliveries](core-concepts/deliveries.md), [Errors](core-concepts/errors.md), [Publishing events](core-concepts/publishing-events.md), [Webhook endpoints](core-concepts/webhook-endpoints.md), [The judge](core-concepts/judge.md), [Inbound mail](core-concepts/inbound-mail.md), [Web Push](core-concepts/web-push.md), [Outbound mail](core-concepts/outbound-mail.md), [Webhooks from Relay](core-concepts/incoming-webhooks.md)
+- **Core concepts**: [Architecture](core-concepts/architecture.md), [Authentication](core-concepts/authentication.md), [Scopes](core-concepts/scopes.md), [Deliveries](core-concepts/deliveries.md), [Errors](core-concepts/errors.md), [Publishing events](core-concepts/publishing-events.md), [Webhook endpoints](core-concepts/webhook-endpoints.md), [The judge](core-concepts/judge.md), [Inbound mail](core-concepts/inbound-mail.md), [Web Push](core-concepts/web-push.md), [Outbound mail](core-concepts/outbound-mail.md), [Webhooks from Relay](core-concepts/incoming-webhooks.md), [Inbound webhooks](core-concepts/inbound-webhooks.md)
 - **Cookbook**: [Register workspaces as scopes](cookbook/register-workspaces-as-scopes.md), [Page through the delivery log](cookbook/page-through-the-delivery-log.md), [Offer webhooks to your customers](cookbook/offer-webhooks-to-your-customers.md), [React to bounces and complaints](cookbook/react-to-bounces-and-complaints.md)
 - **Configuration**: [Reference](configuration/reference.md)
 - **Extension points**: [Overview](extension-points/_index.md)

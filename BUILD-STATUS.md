@@ -16,6 +16,9 @@ Nothing has been released or tagged.
   - `GET|PUT /v1/event-types`
   - `GET|POST /v1/events`, `POST /v1/events/batch`, `GET /v1/events/{id}`
   - `POST /v1/webhook-deliveries/{id}/retry`
+  - `POST /v1/erasures`
+  - `GET|POST /v1/sources`, `GET|DELETE /v1/sources/{id}`, `PUT /v1/sources/{id}/secret`,
+    and `pause`, `resume`
   - `GET|POST /v1/endpoints`, `GET|PATCH|DELETE /v1/endpoints/{id}`, and `pause`,
     `resume`, `rotate-secret`, `ping`, `replay`
   - `POST /v1/judge`, `GET /v1/judgments/{id}`
@@ -23,7 +26,7 @@ Nothing has been released or tagged.
   - `GET /v1/inbound`, `GET|DELETE /v1/inbound/{id}`
   - `GET /v1/push/key`, `GET|POST /v1/push/subscriptions`,
     `DELETE /v1/push/subscriptions/{id}`, `POST /v1/push`, `GET /v1/push/{id}`
-  - `GET|POST /v1/domains`, `GET|DELETE /v1/domains/{id}`, `…/verify`
+  - `GET|POST /v1/domains`, `GET|DELETE /v1/domains/{id}`, `…/verify`, `…/reputation`
   - `GET|POST /v1/suppressions`, `DELETE /v1/suppressions/{address}`
   - `POST /v1/mail`, `GET /v1/mail/{id}`
 - Error mapping from `application/problem+json`: 401 `RelayUnauthorized`, 403
@@ -33,13 +36,16 @@ Nothing has been released or tagged.
   `RelayException`. Plus `RelayNotConfigured`, `RelayMalformedResponse`,
   `RelayScopeRequired` and `RelayWebhookRejected`.
 - The `Relay` manager, its fronts (`Scopes`, `EventTypes`, `Endpoints`, `Events`,
-  `InboundRoutes`, `Inbound`, `PushSubscriptions`, `Domains`, `Suppressions`) and the
+  `Sources`, `InboundRoutes`, `Inbound`, `PushSubscriptions`, `Domains`, `Suppressions`)
+  and the
   facade, with `forScope()`, `withoutScope()`, `relay.scope` and `relay.scope_key`.
-  Calls that need a scope throw `RelayScopeRequired` before a request is made.
+  Calls that need a scope throw `RelayScopeRequired` before a request is made, and
+  Relay's own 422 `scope_required` is thrown as the same exception.
 - `Relay::publish()` through `Contracts\EventPublisher`: `Jobs\PublishEvent` queued after
   commit with a generated idempotency key, its retry rules (permanent on 403, 404, 413,
   422; `Retry-After` on 429; backoff otherwise), `relay.publish.sync`, `publishNow()` and
-  `publishBatch()`.
+  `publishBatch()`. An event's `subject` travels with all of them, and
+  `eraseSubject()` removes a subject's events.
 - The `relay` mail transport (`Mail\RelayMailTransport`, `Mail\EmailMapper`): from, to,
   cc, bcc, reply-to, subject, html, text, allowed headers, attachments as base64; scope
   and idempotency key from control headers.
@@ -66,7 +72,6 @@ Nothing has been released or tagged.
   deduplicate on `IncomingWebhook::$deliveryId`.
 - **Batched webhook deliveries** (the engine's batch envelope): the API has no way to
   ask for them, so they are not parsed.
-- **Inbound webhook sources** (`/v1/sources`): being added to the service; not covered.
 - **Inline images in mail.** The API's attachments have no content id, so an embedded
   image goes as an ordinary attachment.
 - **Suspending, deleting or renaming scopes** beyond what a `put` does, and **key
@@ -85,8 +90,12 @@ Nothing has been released or tagged.
 - **The webhook signature against a live delivery.** It is tested against a vector made
   with `cboxdk/laravel-webhook-signature` (the implementation Relay signs with), plus
   the refusals. No delivery from the service has been verified with it.
-- **The shapes of Relay's own events.** The API description does not list them. They
-  were read from the service's source and may move with it.
+- **The shapes of Relay's own events against a live delivery.** They follow the field
+  lists in Relay's webhook guide, which says it was written from a captured delivery;
+  this package has parsed none itself.
+- **A typed object for what a source forwards** (`inbound.<name>`): not built. It
+  arrives in `IncomingWebhook::$data` (`source`, `provider_event_id`, `content_type`,
+  `body`).
 - **The mail transport against a real mailer round trip.** The mapping is tested on
   Symfony `Email` objects and through Laravel's mailer onto the fake and `Http::fake()`.
 - **The queued publish on a real queue.** The job's rules are tested with Laravel's fake
@@ -94,13 +103,13 @@ Nothing has been released or tagged.
   against the service.
 - **Where the API description is silent**, the client made a choice. The ones that
   matter:
-  - `replay` has no body schema; `since`, `until` and `types` are sent as the prose
-    names them, dates as ISO 8601 in UTC.
   - `publish` sends its idempotency key in the body (`idempotency_key`), not as the
     `Idempotency-Key` header: the body field is the one the description ties to
     `duplicate`.
   - An event published without a time is stamped by the client when `publish()` is
-    called.
+    called; Relay would use the time it received it.
+  - A `subject` is checked client-side as visible ASCII without spaces, 1 to 191. The
+    API description states only the maximum length.
   - Statuses, kinds, envelopes and outcomes in answers are kept as strings.
 - **The fake's judgement calls**; they are listed in
   [docs/getting-started/testing.md](docs/getting-started/testing.md#where-the-fake-decides).

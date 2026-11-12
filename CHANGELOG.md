@@ -19,6 +19,15 @@ Nothing has been released yet. Everything below is on `main`.
   `Relay::publishNow()` calls inline and returns the result; `Relay::publishBatch()`
   sends up to 100 events in one call. `relay.publish.sync` makes `publish()` inline.
   `Contracts\EventPublisher` is the seam.
+- **Erasure.** `subject` as the last argument of `publish()`, `publishNow()` and
+  `NewEvent`, carried by the queued job and checked before anything is queued;
+  `Relay::eraseSubject()` removes a subject's events, with `Data\Erasure`.
+- **Inbound webhooks.** `Relay::sources()` with `register`, `list`, `find`,
+  `rotateSecret`, `pause`, `resume` and `delete`; `Data\Source` and `SourceScheme`.
+- **Domain reputation.** `Relay::domains()->reputation()` with `Data\DomainReputation`.
+- `Data\AttemptOutcome`, with `PingResult::outcome()` and `succeeded()`. The raw string
+  stays, so an outcome Relay adds later does not break a read.
+- Relay's 422 with the type `scope_required` is thrown as `RelayScopeRequired`.
 - **The judge.** `Relay::judge()` and `Relay::judgment()` with a typed `Judgment`
   (verdict scores, category, findings).
 - **Inbound mail.** `Relay::inboundRoutes()` (`register`, `list`, `verify`, `remove`)
@@ -43,8 +52,10 @@ Nothing has been released yet. Everything below is on `main`.
   `assertPublishedTimes`, `assertNotPublished`, `assertNothingPublished`,
   `assertEventTypesDeclared`, `assertEndpointRegistered`, `assertMailSent`,
   `assertMailSentTimes`, `assertNoMailSent`, `assertPushed`, `assertPushedTimes`,
-  `assertNothingPushed`, `assertJudged`, `assertNothingJudged`, `assertInboundErased`
-  and `assertInboundRouteRegistered`, plus seeders and `acceptAnyScope()`.
+  `assertNothingPushed`, `assertJudged`, `assertNothingJudged`, `assertInboundErased`,
+  `assertInboundRouteRegistered`, `assertSubjectErased`, `assertNoSubjectErased`,
+  `assertSourceRegistered` and `assertNoSourceRegistered`, plus seeders and
+  `acceptAnyScope()`.
   `Relay::fake()` makes `publish()` record at once instead of queueing.
 - `Cbox\Relay\Client\Contracts\RelayTransport` with `Http\HttpRelayTransport` over
   Laravel's HTTP client: `GET /v1/whoami`, `PUT /v1/scopes/{external_ref}`,

@@ -110,6 +110,10 @@ one or CloudEvents 1.0 structured JSON, into the same object:
 | `apiVersion` | `api_version` | `apiversion` | |
 | `envelope` | | | `Envelope::Cbox` or `Envelope::CloudEvents` |
 
+Every delivery also carries `X-Webhook-Event`, `X-Webhook-Delivery` (the delivery id
+again, also sent as `Idempotency-Key`), `X-Webhook-Attempt` and `X-Webhook-Sequence`.
+The parser reads the body only: the body is what is signed.
+
 One delivery carries one event. Batched deliveries are not read: Relay's API has no way
 to ask for them.
 
@@ -135,8 +139,11 @@ other type (your own events come back in `$webhook->data`). All are in
 
 `mail.received` carries no content: fetch it with `Relay::inbound()->find($event->id)`.
 
-These shapes are read from the service's source, because its API description does not
-list them. They are not part of its published contract yet and may move with it.
+These are the fields Relay's webhook guide lists for each event. A field that is missing
+or of the wrong type makes `event()` throw `RelayWebhookRejected` (`malformed_body`).
+
+An event a [source](inbound-webhooks.md) forwards has the type `inbound.<name>` and is
+not one of these: read it from `$webhook->data`.
 
 ## Testing your route
 

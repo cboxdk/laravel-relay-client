@@ -45,7 +45,7 @@ $endpoints->update($id, clearDescription: true);
 $endpoints->pause($id);                  // events are kept and can be replayed
 $endpoints->resume($id);
 $endpoints->rotateSecret($id)->secret;   // the old one works until ->previousSecretExpiresAt
-$endpoints->ping($id);                   // PingResult: outcome, responseCode, durationMs, error
+$endpoints->ping($id);                   // PingResult: outcome, responseCode, durationMs, error; ->succeeded()
 $endpoints->replay($id, since: now()->subDay(), until: null, types: ['order.paid']);   // int: how many were queued
 $endpoints->delete($id);
 ```
@@ -55,6 +55,10 @@ $endpoints->delete($id);
 - `envelope` is `Envelope::Cbox` (Relay's default) or `Envelope::CloudEvents`.
   `signatureScheme` is `SignatureScheme::Cbox` (the default) or
   `SignatureScheme::StandardWebhooks`; it is chosen at registration and cannot be changed.
+- `PingResult::$outcome` is Relay's string (`success`, `http_error`, `timeout`,
+  `connection_error`, `blocked_url`, `breaker_open`, `rate_limited`, `cancelled`,
+  `deferred`). `->outcome()` gives it as an `AttemptOutcome` enum, or `null` for one
+  Relay added after this client was written; `->succeeded()` is true for `success`.
 - `Endpoint::$status` is `active`, `paused` or `disabled`; `$endpoint->health` says how
   the receiver has been answering.
 

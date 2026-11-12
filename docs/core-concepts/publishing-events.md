@@ -1,6 +1,6 @@
 ---
 title: Publishing events
-description: Relay::publish() queues a job that makes the HTTP call after commit, with an idempotency key so retries publish once; publishNow and publishBatch call inline.
+description: Relay::publish() queues a job that makes the HTTP call after commit, with an idempotency key so retries publish once; publishNow and publishBatch call inline; a subject makes an event erasable.
 weight: 26
 ---
 
@@ -32,8 +32,9 @@ and an event is not lost because Relay was down for a minute.
 - **Your own key.** Pass one when the same fact may be published from more than one
   place: `publish('order.paid', $payload, idempotencyKey: "order.paid:{$order->id}")`.
 - **When it occurred.** `occurredAt:` takes any `DateTimeInterface`. Left out, the
-  client stamps the moment `publish()` was called, so a job that runs later does not
-  move the event in time.
+  client stamps the moment `publish()` was called. Relay would otherwise use the time
+  it received the event, which is when the job ran.
+- **Who it is about.** `subject:` is described [below](#forgetting-a-person).
 
 A worker must be running for the connection and queue the job goes on. Without one,
 nothing is published.
@@ -94,6 +95,36 @@ $published = Relay::forScope($workspace->id)->publishBatch([
 
 Up to 100 events in one call, made now. All are stored or none. It is not queued:
 dispatch your own job around it when it should be.
+
+## Forgetting a person
+
+Give an event a `subject` when you publish it: your own id for the person it is about,
+not a name or an address.
+
+```php
+Relay::forScope($ref)->publish('order.paid', $payload, subject: "contact_{$contact->id}");
+```
+
+It is stored with the event and never sent to a receiver. `publish()`, `publishNow()`
+and `NewEvent` all take it, as the last argument, and the queued job carries it. A
+subject is 1 to 191 visible ASCII characters without spaces; anything else throws
+`RelayInvalid` where you call `publish()`, before a job is queued for it.
+
+When that person must be erased:
+
+```php
+$erasure = Relay::forScope($ref)->eraseSubject("contact_{$contact->id}");
+
+$erasure->removed;   // rows that went: events, their deliveries and their attempts
+```
+
+It removes their events in the scope. Calling it again removes nothing. An event
+published without a subject is not found: it stays until the scope's retention removes
+it. The delivery log keeps its rows (a target, a status and a time, no content) until
+its own retention. Needs `events:publish`.
+
+This erases what Relay holds about the events. What your customers' endpoints already
+received is theirs.
 
 ## Replace how publish() hands over
 

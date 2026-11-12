@@ -28,6 +28,16 @@ $domains->verify($domain->id)->verified();   // looks the DKIM record up now
 $domains->list();  $domains->find($id);  $domains->remove($id);
 ```
 
+```php
+$reputation = $domains->reputation($domain->id);
+
+$reputation->sent; $reputation->bounced; $reputation->complained;   // recipients, in the last ->windowDays days
+$reputation->bounceRate; $reputation->complaintRate;                // null when nothing was sent
+```
+
+These are the numbers Relay's automatic pause looks at, for this scope's mail from the
+domain.
+
 A domain can send once its status is `verified`. A verified domain whose record has
 gone becomes `failed`. Each scope proves a domain for itself.
 
