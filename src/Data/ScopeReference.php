@@ -13,7 +13,7 @@ readonly class ScopeReference
     public function __construct(
         public string $id,
         public string $externalRef,
-        public string $name,
+        public ?string $name,
     ) {}
 
     /**
@@ -24,12 +24,12 @@ readonly class ScopeReference
         return new self(
             Payload::string($data, 'id'),
             Payload::string($data, 'external_ref'),
-            Payload::string($data, 'name'),
+            Payload::nullableString($data, 'name'),
         );
     }
 
     /**
-     * @return array{id: string, external_ref: string, name: string}
+     * @return array{id: string, external_ref: string, name: string|null}
      */
     public function toArray(): array
     {

@@ -11,6 +11,7 @@ use Cbox\Relay\Client\Exceptions\RelayForbidden;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
 use Cbox\Relay\Client\Exceptions\RelayRateLimited;
+use Cbox\Relay\Client\Exceptions\RelayTooLarge;
 use Cbox\Relay\Client\Exceptions\RelayUnauthorized;
 use Cbox\Relay\Client\Exceptions\RelayUnavailable;
 use DateTimeImmutable;
@@ -32,6 +33,7 @@ class Problems
             $status === 403 => new RelayForbidden($message, $problem),
             $status === 404 => new RelayNotFound($message, $problem),
             $status === 409 => new RelayConflict($message, $problem),
+            $status === 413 => new RelayTooLarge($message, $problem),
             $status === 422 => new RelayInvalid($message, $problem->errors, $problem),
             $status === 429 => new RelayRateLimited($message, self::retryAfter($response), $problem),
             $status >= 500 => new RelayUnavailable($message, $problem),

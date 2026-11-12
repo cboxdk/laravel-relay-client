@@ -6,6 +6,7 @@ use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Relay as RelayManager;
+use Cbox\Relay\Client\RelayConfig;
 use Cbox\Relay\Client\Scopes;
 use Cbox\Relay\Client\Testing\FakeRelay;
 use Cbox\Relay\Client\Testing\Operation;
@@ -166,7 +167,42 @@ it('publishes its config', function (): void {
 it('ships the documented defaults', function (): void {
     $config = require __DIR__.'/../../config/relay.php';
 
-    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'scope'])
+    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'scope', 'scope_key', 'publish', 'webhook'])
         ->and($config['timeout'])->toBe(5.0)
-        ->and($config['connect_timeout'])->toBe(2.0);
+        ->and($config['connect_timeout'])->toBe(2.0)
+        ->and($config['scope_key'])->toBeFalse()
+        ->and($config['publish'])->toBe(['sync' => false, 'connection' => null, 'queue' => null, 'tries' => 5, 'backoff' => [10, 30, 120, 600]])
+        ->and($config['webhook'])->toBe(['secret' => null, 'previous_secret' => null, 'tolerance' => 300]);
+});
+
+it('reads the publish and webhook settings, falling back when they are unusable', function (): void {
+    $config = app(RelayConfig::class);
+
+    expect($config->publishSync())->toBeFalse()
+        ->and($config->scopeKey())->toBeFalse()
+        ->and($config->publishConnection())->toBeNull()
+        ->and($config->publishQueue())->toBeNull()
+        ->and($config->publishTries())->toBe(5)
+        ->and($config->publishBackoff())->toBe([10, 30, 120, 600])
+        ->and($config->webhookSecrets())->toBe([])
+        ->and($config->webhookTolerance())->toBe(300);
+
+    config()->set('relay.publish', ['sync' => 'true', 'connection' => ' sqs ', 'queue' => 'relay', 'tries' => 0, 'backoff' => '5, 15,x']);
+    config()->set('relay.webhook', ['secret' => 'new', 'previous_secret' => 'old', 'tolerance' => -1]);
+    config()->set('relay.scope_key', '1');
+
+    expect($config->publishSync())->toBeTrue()
+        ->and($config->scopeKey())->toBeTrue()
+        ->and($config->publishConnection())->toBe('sqs')
+        ->and($config->publishQueue())->toBe('relay')
+        ->and($config->publishTries())->toBe(5)
+        ->and($config->publishBackoff())->toBe([5, 15])
+        ->and($config->webhookSecrets())->toBe(['new', 'old'])
+        ->and($config->webhookTolerance())->toBe(300);
+});
+
+it('reads a scope that has no name', function (): void {
+    Http::fake(['relay.test/v1/scopes/ws_1' => Http::response(['id' => 'scp_1', 'external_ref' => 'ws_1', 'name' => null, 'settings' => [], 'suspended_at' => null, 'created_at' => '2026-11-12T10:00:00Z'])]);
+
+    expect(Relay::scopes()->find('ws_1')?->name)->toBeNull();
 });

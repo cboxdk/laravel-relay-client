@@ -7,8 +7,9 @@ namespace Cbox\Relay\Client\Testing;
 use Cbox\Relay\Client\Facades\Relay;
 
 /**
- * Swap Cbox Relay for {@see FakeRelay} in a Laravel or Testbench test case: scopes are
- * kept in memory, deliveries are whatever the test seeded, nothing leaves the process.
+ * Swap Cbox Relay for {@see FakeRelay} in a Laravel or Testbench test case: everything
+ * is kept in memory, `Relay::publish()` records instead of queueing, and nothing leaves
+ * the process.
  */
 trait InteractsWithRelay
 {

@@ -6,6 +6,8 @@ namespace Cbox\Relay\Client\Data;
 
 use Cbox\Relay\Client\Exceptions\RelayMalformedResponse;
 use DateTimeImmutable;
+use DateTimeInterface;
+use DateTimeZone;
 use Exception;
 
 /**
@@ -173,6 +175,92 @@ class Payload
         }
 
         return $strings;
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $data
+     */
+    public static function bool(array $data, string $key): bool
+    {
+        $value = $data[$key] ?? null;
+
+        return is_bool($value) ? $value : throw self::malformed($key, 'a boolean');
+    }
+
+    /**
+     * A JSON number, whole or not.
+     *
+     * @param  array<array-key, mixed>  $data
+     */
+    public static function number(array $data, string $key): float
+    {
+        $value = $data[$key] ?? null;
+
+        return is_int($value) || is_float($value) ? (float) $value : throw self::malformed($key, 'a number');
+    }
+
+    /**
+     * A JSON object whose values are all strings. Missing or null reads as empty.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<string, string>
+     */
+    public static function stringMap(array $data, string $key): array
+    {
+        $map = [];
+
+        foreach (self::nullableMap($data, $key) ?? [] as $name => $value) {
+            $map[$name] = is_string($value) ? $value : throw self::malformed($key, 'an object of strings');
+        }
+
+        return $map;
+    }
+
+    /**
+     * A JSON object whose values are all numbers. Missing or null reads as empty.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return array<string, float>
+     */
+    public static function numberMap(array $data, string $key): array
+    {
+        $map = [];
+
+        foreach (self::nullableMap($data, $key) ?? [] as $name => $value) {
+            $map[$name] = is_int($value) || is_float($value) ? (float) $value : throw self::malformed($key, 'an object of numbers');
+        }
+
+        return $map;
+    }
+
+    /**
+     * A JSON array of objects that may be left out. Missing or null reads as empty.
+     *
+     * @param  array<array-key, mixed>  $data
+     * @return list<array<array-key, mixed>>
+     */
+    public static function optionalMaps(array $data, string $key): array
+    {
+        return ($data[$key] ?? null) === null ? [] : self::maps($data, $key);
+    }
+
+    /**
+     * A date as Relay writes it: ISO 8601 in UTC, to the second.
+     */
+    public static function iso(DateTimeInterface $date): string
+    {
+        return DateTimeImmutable::createFromInterface($date)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+    }
+
+    /**
+     * An array without its null values: what is not set is not sent.
+     *
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    public static function compact(array $values): array
+    {
+        return array_filter($values, static fn (mixed $value): bool => $value !== null);
     }
 
     private static function malformed(string $key, string $expected, ?Exception $previous = null): RelayMalformedResponse

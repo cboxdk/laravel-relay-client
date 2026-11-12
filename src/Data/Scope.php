@@ -23,7 +23,7 @@ readonly class Scope
     public function __construct(
         public string $id,
         public string $externalRef,
-        public string $name,
+        public ?string $name,
         public DateTimeImmutable $createdAt,
         public array $settings = [],
         public ?DateTimeImmutable $suspendedAt = null,
@@ -38,7 +38,7 @@ readonly class Scope
         return new self(
             id: Payload::string($data, 'id'),
             externalRef: Payload::string($data, 'external_ref'),
-            name: Payload::string($data, 'name'),
+            name: Payload::nullableString($data, 'name'),
             createdAt: Payload::date($data, 'created_at'),
             settings: Payload::nullableMap($data, 'settings') ?? [],
             suspendedAt: Payload::nullableDate($data, 'suspended_at'),

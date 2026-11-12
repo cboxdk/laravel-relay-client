@@ -12,6 +12,7 @@ use Cbox\Relay\Client\Data\Environment;
 use Cbox\Relay\Client\Data\Identity;
 use Cbox\Relay\Client\Data\Organization;
 use Cbox\Relay\Client\Data\Page;
+use Cbox\Relay\Client\Data\PingResult;
 use Cbox\Relay\Client\Data\Problem;
 use Cbox\Relay\Client\Data\Scope;
 use Cbox\Relay\Client\Data\ScopeReference;
@@ -19,23 +20,39 @@ use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
+use Cbox\Relay\Client\Testing\Concerns\FakesInbound;
+use Cbox\Relay\Client\Testing\Concerns\FakesJudge;
+use Cbox\Relay\Client\Testing\Concerns\FakesMail;
+use Cbox\Relay\Client\Testing\Concerns\FakesPush;
+use Cbox\Relay\Client\Testing\Concerns\FakesWebhooks;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Assert;
 
 /**
- * Cbox Relay in memory. Scopes are really stored and `putScope` is idempotent like the
- * real one (created once, updated after); the delivery log holds what the test seeded,
- * filtered and paged like the real one. Every call is recorded. Nothing leaves the process.
+ * Cbox Relay in memory. Scopes, event types, endpoints, events, judgments, inbound
+ * routes, push subscriptions, sending domains and suppressions are really stored, per
+ * scope; published events, sent mail and push messages are recorded and go nowhere; the
+ * delivery log and received mail hold what the test seeded. Every call is recorded.
+ * Nothing leaves the process.
  *
  * Where the fake has to decide something the API description leaves open, the choice is
  * listed in the testing docs (docs/getting-started/testing.md).
  */
 class FakeRelay implements RelayTransport
 {
+    use FakesInbound;
+    use FakesJudge;
+    use FakesMail;
+    use FakesPush;
+    use FakesWebhooks;
+
     /** The page size when a list is read without `limit`. */
     public const int DEFAULT_LIMIT = 50;
+
+    /** What the `type` of every problem the fake answers with starts with, as on the real service. */
+    public const string PROBLEMS = 'https://cboxrelay.com/problems/';
 
     /** @var array<string, Scope> by external ref */
     private array $scopes = [];
@@ -49,6 +66,13 @@ class FakeRelay implements RelayTransport
     /** @var array<string, string> idempotency key => fingerprint of the request it was used for */
     private array $idempotencyKeys = [];
 
+    /** @var array<string, object> idempotency key => the first answer, given again to a repeat */
+    private array $idempotentAnswers = [];
+
+    private bool $anyScope = false;
+
+    private bool $dnsPublished = true;
+
     private Identity $identity;
 
     private ?RelayException $failure = null;
@@ -60,8 +84,13 @@ class FakeRelay implements RelayTransport
         $this->identity = new Identity(
             new Organization('org_fake', 'Fake organization'),
             Environment::Test,
-            new ApiKey('key_fake', 'Fake key', 'rlk_test_fake', ['scopes:manage', 'deliveries:read']),
+            new ApiKey('key_fake', 'Fake key', 'rlk_test_fake', [
+                'scopes:manage', 'deliveries:read', 'judge:run', 'inbound:read', 'inbound:manage', 'push:send', 'push:manage',
+                'mail:send', 'domains:manage', 'suppressions:manage', 'events:publish', 'events:read', 'endpoints:manage',
+            ]),
         );
+
+        $this->pingResult = new PingResult('delivered', 200, 1);
     }
 
     public function whoami(?string $scope = null): Identity
@@ -226,6 +255,28 @@ class FakeRelay implements RelayTransport
         return $this;
     }
 
+    /**
+     * Take any scope a call names: one that is not stored yet is stored on first use,
+     * instead of answering 404. For tests that are not about registering scopes.
+     */
+    public function acceptAnyScope(bool $accept = true): static
+    {
+        $this->anyScope = $accept;
+
+        return $this;
+    }
+
+    /**
+     * Whether the DNS records Relay looks for are found when a domain or a domain route
+     * is verified. They are by default; pass false to test the pending and failed paths.
+     */
+    public function dnsPublished(bool $published = true): static
+    {
+        $this->dnsPublished = $published;
+
+        return $this;
+    }
+
     /** Back to answering. */
     public function recover(): static
     {
@@ -355,7 +406,75 @@ class FakeRelay implements RelayTransport
         }
 
         return $this->scope($scope)
-            ?? throw new RelayNotFound(problem: new Problem(404, 'Not Found', "No scope '{$scope}' to act for."));
+            ?? ($this->anyScope ? $this->seedScope($scope) : throw $this->missing('scope_not_found', "No scope '{$scope}' to act for."));
+    }
+
+    /**
+     * Where a scoped call keeps its things: the id of the scope it acts for. A call
+     * without one (a scope key, which needs no header) has a place of its own.
+     */
+    private function bucket(?string $scope): string
+    {
+        return $this->acting($scope)->id ?? '';
+    }
+
+    /** The same place, for the fake's own helpers: no 404, an unknown scope has nothing. */
+    private function bucketOf(?string $scope): string
+    {
+        return $scope === null || $scope === '' ? '' : ($this->scope($scope)->id ?? $scope);
+    }
+
+    private function nextNumber(): int
+    {
+        return ++$this->sequence;
+    }
+
+    private function now(): DateTimeImmutable
+    {
+        return Carbon::now()->toDateTimeImmutable();
+    }
+
+    private function fingerprint(Operation $operation, string $bucket, mixed $input): string
+    {
+        return $operation->value.'|'.$bucket.'|'.serialize($input);
+    }
+
+    /**
+     * The first answer to this idempotency key, when the same request is repeated; null
+     * for a key that is new (or absent). The same key for a different request is a 409.
+     */
+    private function replayed(?string $idempotencyKey, string $fingerprint): ?object
+    {
+        if ($idempotencyKey === null) {
+            return null;
+        }
+
+        if (($this->idempotencyKeys[$idempotencyKey] ??= $fingerprint) !== $fingerprint) {
+            throw new RelayConflict(problem: new Problem(409, 'Conflict', 'The Idempotency-Key was already used for a different request.', self::PROBLEMS.'idempotency_key_reused'));
+        }
+
+        return $this->idempotentAnswers[$idempotencyKey] ?? null;
+    }
+
+    /**
+     * @template TAnswer of object
+     *
+     * @param  TAnswer  $answer
+     * @return TAnswer
+     */
+    private function remember(?string $idempotencyKey, string $fingerprint, object $answer): object
+    {
+        if ($idempotencyKey !== null) {
+            $this->idempotencyKeys[$idempotencyKey] = $fingerprint;
+            $this->idempotentAnswers[$idempotencyKey] = $answer;
+        }
+
+        return $answer;
+    }
+
+    private function missing(string $type, string $detail): RelayNotFound
+    {
+        return new RelayNotFound('Cbox Relay answered 404 Not found: '.$detail, new Problem(404, 'Not found', $detail, self::PROBLEMS.$type));
     }
 
     /**
@@ -392,7 +511,7 @@ class FakeRelay implements RelayTransport
 
     private function invalid(string $field, string $message): RelayInvalid
     {
-        return new RelayInvalid(errors: [$field => [$message]], problem: new Problem(422, 'Unprocessable Content', $message, errors: [$field => [$message]]));
+        return new RelayInvalid('Cbox Relay answered 422 Unprocessable Content: '.$message, [$field => [$message]], new Problem(422, 'Unprocessable Content', $message, self::PROBLEMS.'invalid_request', [$field => [$message]]));
     }
 
     /**

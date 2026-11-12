@@ -1,12 +1,14 @@
 {
     "name": "cboxdk/laravel-relay-client",
-    "description": "Cbox Relay client for Laravel: authenticate against Cbox Relay, manage scopes and read the delivery log, with an in-memory fake for tests.",
+    "description": "Cbox Relay client for Laravel: publish events, send mail and push, judge content, read inbound mail and verify Relay's webhooks, with an in-memory fake for tests.",
     "keywords": [
         "cbox",
         "relay",
         "laravel",
         "webhooks",
         "delivery",
+        "mail",
+        "web-push",
         "client"
     ],
     "homepage": "https://github.com/cboxdk/laravel-relay-client",
@@ -24,9 +26,16 @@
     ],
     "require": {
         "php": "^8.4",
+        "illuminate/bus": "^12.0 || ^13.0",
         "illuminate/contracts": "^12.0 || ^13.0",
         "illuminate/http": "^12.0 || ^13.0",
-        "illuminate/support": "^12.0 || ^13.0"
+        "illuminate/mail": "^12.0 || ^13.0",
+        "illuminate/notifications": "^12.0 || ^13.0",
+        "illuminate/queue": "^12.0 || ^13.0",
+        "illuminate/routing": "^12.0 || ^13.0",
+        "illuminate/support": "^12.0 || ^13.0",
+        "symfony/mailer": "^7.2 || ^8.0",
+        "symfony/mime": "^7.2 || ^8.0"
     },
     "require-dev": {
         "larastan/larastan": "^3.12",
