@@ -69,9 +69,9 @@ class Doctor
         }
 
         if (! $ping) {
-            $checks[] = $connection->project === null && ! $connection->projectKey
-                ? DoctorCheck::warning($section, 'Project', 'No default project and not a project key: name a project per call (Relay::forProject()), or set one.')
-                : DoctorCheck::ok($section, 'Project', $connection->projectKey ? 'the key is a project key' : "default project {$connection->project}");
+            $checks[] = DoctorCheck::ok($section, 'Project', $connection->project === null
+                ? 'none named: the key\'s own project, or the project `default` for an organization key'
+                : "default project {$connection->project}");
 
             return $checks;
         }
@@ -97,18 +97,14 @@ class Doctor
 
     private function project(string $section, Relay $relay, ConnectionConfig $connection, ?string $locked): DoctorCheck
     {
-        if ($connection->projectKey) {
-            return $locked === null
-                ? DoctorCheck::failure($section, 'Project', 'project_key is on, but this key is an organization key: calls that need a project will be refused. Turn it off and name a project.')
-                : DoctorCheck::ok($section, 'Project', "the key is locked to {$locked}");
-        }
-
         if ($locked !== null) {
-            return DoctorCheck::warning($section, 'Project', "This key is locked to {$locked}: set project_key (RELAY_PROJECT_KEY=true) so calls go out without naming one.");
+            return $connection->project === null || $connection->project === $locked
+                ? DoctorCheck::ok($section, 'Project', "the key is locked to {$locked}")
+                : DoctorCheck::failure($section, 'Project', "The key is locked to {$locked}, but the default project is {$connection->project}: Relay refuses a project key that names another project.");
         }
 
         if ($connection->project === null) {
-            return DoctorCheck::warning($section, 'Project', 'No default project: name a project per call (Relay::forProject()), or set one.');
+            return DoctorCheck::ok($section, 'Project', 'none named: calls act for the project `default`, which Relay makes on first use');
         }
 
         try {

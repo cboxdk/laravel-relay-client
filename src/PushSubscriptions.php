@@ -30,7 +30,7 @@ class PushSubscriptions
             is_array($subscription) ? BrowserSubscription::fromArray($subscription) : $subscription,
             $ref,
             $idempotencyKey,
-            $this->project->required(),
+            $this->project->ref,
         );
     }
 
@@ -41,11 +41,11 @@ class PushSubscriptions
      */
     public function list(?string $ref = null): array
     {
-        return $this->transport->listPushSubscriptions($ref, $this->project->required());
+        return $this->transport->listPushSubscriptions($ref, $this->project->ref);
     }
 
     public function unsubscribe(string $id): void
     {
-        $this->transport->deletePushSubscription($id, $this->project->required());
+        $this->transport->deletePushSubscription($id, $this->project->ref);
     }
 }

@@ -412,19 +412,26 @@ class FakeRelay implements RelayTransport
             ?? ($this->anyProject ? $this->seedProject($project) : throw $this->missing('project_not_found', "No project '{$project}' to act for."));
     }
 
+    /** The `external_ref` of the project a call without a `Relay-Project` acts for, as on Relay. */
+    public const string DEFAULT_PROJECT = 'default';
+
     /**
-     * Where a scoped call keeps its things: the id of the project it acts for. A call
-     * without one (a project key, which needs no header) has a place of its own.
+     * Where a scoped call keeps its things: the id of the project it acts for. A call that
+     * names none acts for the project `default`, made on first use as Relay makes it.
      */
     private function bucket(?string $project): string
     {
-        return $this->acting($project)->id ?? '';
+        return ($this->acting($project) ?? $this->project(self::DEFAULT_PROJECT) ?? $this->seedProject(self::DEFAULT_PROJECT, 'Default'))->id;
     }
 
     /** The same place, for the fake's own helpers: no 404, an unknown project has nothing. */
     private function bucketOf(?string $project): string
     {
-        return $project === null || $project === '' ? '' : ($this->project($project)->id ?? $project);
+        if ($project === null || $project === '') {
+            return ($this->project(self::DEFAULT_PROJECT) ?? $this->seedProject(self::DEFAULT_PROJECT, 'Default'))->id;
+        }
+
+        return $this->project($project)->id ?? $project;
     }
 
     private function nextNumber(): int

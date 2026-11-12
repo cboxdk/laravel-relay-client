@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
-use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Mail\EmailMapper;
 use Cbox\Relay\Client\Mail\RelayMailTransport;
@@ -167,7 +166,7 @@ it('posts the structured body over HTTP', function (): void {
         ]);
 });
 
-it('throws what Relay refuses, and needs a project like any other send', function (): void {
+it('throws what Relay refuses, and sends for the default project when none is named', function (): void {
     $relay = Relay::fake();
     $relay->seedProject('ws_1');
     $relay->seedDomain('ws_1', 'other.dk');
@@ -176,7 +175,10 @@ it('throws what Relay refuses, and needs a project like any other send', functio
 
     config()->set('relay.project', null);
 
-    expect(fn () => Mail::raw('Thanks', fn (Message $message) => $message->to('ann@example.com')->subject('Hi')))->toThrow(RelayProjectRequired::class);
+    // No project named: Relay's default project takes it.
+    Mail::raw('Thanks', fn (Message $message) => $message->to('ann@example.com')->subject('Hi'));
+
+    $relay->assertMailSent(fn (OutgoingMail $mail, ?string $project): bool => $project === null);
 });
 
 it('refuses a mail without a sender', function (): void {

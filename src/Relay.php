@@ -24,7 +24,6 @@ use Cbox\Relay\Client\Data\Published;
 use Cbox\Relay\Client\Data\PushMessage;
 use Cbox\Relay\Client\Data\PushUrgency;
 use Cbox\Relay\Client\Data\TemplateReference;
-use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Jobs\PublishEvent;
 use Cbox\Relay\Client\Publishing\ImmediateEventPublisher;
 use Cbox\Relay\Client\Store\NullMessageStore;
@@ -36,10 +35,9 @@ use Illuminate\Support\Carbon;
  * The Cbox Relay client: a thin, typed front for the {@see RelayTransport} contract.
  * An instance is immutable; `forProject()` and `withoutProject()` return a new one.
  *
- * Most of Relay acts for one project. Those calls throw {@see RelayProjectRequired} before
- * anything is sent when no project is named (`forProject()` or `relay.project`), unless the
- * key is a project key (`relay.project_key`). `whoami()`, `projects()`, `deliveries()` and
- * `inbound()` work without one.
+ * Most of Relay acts for one project: the one named with `forProject()` or `relay.project`.
+ * With none named no `Relay-Project` header is sent, and Relay acts for the project the key
+ * is locked to or, for an organization key, for the environment's `default` project.
  */
 class Relay
 {
@@ -51,7 +49,6 @@ class Relay
 
     /**
      * @param  EventPublisher|null  $publisher  how `publish()` hands events over; null publishes at once through the transport
-     * @param  bool  $projectKey  the API key is a project key, so calls that need a project go out without `Relay-Project`
      * @param  (Closure(string): self)|null  $connections  builds the client of another connection by name; null when there is only this one
      * @param  MessageStore|null  $store  where sent mail is kept locally; null keeps nothing
      * @param  string|null  $connection  the name of the connection this client speaks for; null for the default
@@ -60,12 +57,11 @@ class Relay
         private readonly RelayTransport $transport,
         ?string $project = null,
         ?EventPublisher $publisher = null,
-        bool $projectKey = false,
         private readonly ?Closure $connections = null,
         ?MessageStore $store = null,
         private readonly ?string $connection = null,
     ) {
-        $this->acting = new ActingProject($project, $projectKey);
+        $this->acting = new ActingProject($project);
         $this->publisher = $publisher ?? new ImmediateEventPublisher($transport);
         $this->store = $store ?? new NullMessageStore;
     }
@@ -149,7 +145,7 @@ class Relay
         $key = $idempotencyKey ?? PublishEvent::newIdempotencyKey();
 
         // Stamped here: the job may run much later, and that is not when the event occurred.
-        $this->publisher->publish(new NewEvent($type, $payload, $key, $occurredAt ?? Carbon::now(), $subject), $this->acting->required());
+        $this->publisher->publish(new NewEvent($type, $payload, $key, $occurredAt ?? Carbon::now(), $subject), $this->acting->ref);
 
         return $key;
     }
@@ -162,7 +158,7 @@ class Relay
      */
     public function publishNow(string $type, array $payload = [], ?string $idempotencyKey = null, ?DateTimeInterface $occurredAt = null, ?string $subject = null): Published
     {
-        return $this->transport->publishEvent(new NewEvent($type, $payload, $idempotencyKey, $occurredAt, $subject), $this->acting->required());
+        return $this->transport->publishEvent(new NewEvent($type, $payload, $idempotencyKey, $occurredAt, $subject), $this->acting->ref);
     }
 
     /**
@@ -173,7 +169,7 @@ class Relay
      */
     public function publishBatch(array $events): array
     {
-        return $this->transport->publishEvents($events, $this->acting->required());
+        return $this->transport->publishEvents($events, $this->acting->ref);
     }
 
     /**
@@ -183,7 +179,7 @@ class Relay
      */
     public function eraseSubject(string $subject): Erasure
     {
-        return $this->transport->eraseSubject($subject, $this->acting->required());
+        return $this->transport->eraseSubject($subject, $this->acting->ref);
     }
 
     // Webhooks in
@@ -215,14 +211,14 @@ class Relay
         return $this->transport->judge(
             new JudgeInput($html, $text, $subject, is_string($from) ? new MailAddress($from) : $from, $template, $kind, $direction, $headers),
             $idempotencyKey,
-            $this->acting->required(),
+            $this->acting->ref,
         );
     }
 
     /** A judgment that was given; null when there is none with that id. */
     public function judgment(string $id): ?Judgment
     {
-        return $this->transport->findJudgment($id, $this->acting->required());
+        return $this->transport->findJudgment($id, $this->acting->ref);
     }
 
     // Inbound mail
@@ -242,7 +238,7 @@ class Relay
     /** The project's VAPID public key: give it to the browser as `applicationServerKey`. */
     public function pushKey(): string
     {
-        return $this->transport->pushKey($this->acting->required());
+        return $this->transport->pushKey($this->acting->ref);
     }
 
     public function pushSubscriptions(): PushSubscriptions
@@ -260,13 +256,13 @@ class Relay
      */
     public function push(string $subscription, string|array $payload, ?int $ttl = null, ?PushUrgency $urgency = null, ?string $topic = null, ?string $idempotencyKey = null): PushMessage
     {
-        return $this->transport->sendPush($subscription, $payload, $ttl, $urgency, $topic, $idempotencyKey, $this->acting->required());
+        return $this->transport->sendPush($subscription, $payload, $ttl, $urgency, $topic, $idempotencyKey, $this->acting->ref);
     }
 
     /** What became of a push message; null when there is none with that id. */
     public function pushMessage(string $id): ?PushMessage
     {
-        return $this->transport->findPush($id, $this->acting->required());
+        return $this->transport->findPush($id, $this->acting->ref);
     }
 
     // Outbound mail
@@ -287,7 +283,7 @@ class Relay
      */
     public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null): Mail
     {
-        $project = $this->acting->required();
+        $project = $this->acting->ref;
         $sent = $this->transport->sendMail($mail, $idempotencyKey, $project);
 
         if ($this->store->enabled()) {
@@ -300,7 +296,7 @@ class Relay
     /** What became of a mail and of each recipient; null when there is none with that id. */
     public function mail(string $id): ?Mail
     {
-        return $this->transport->findMail($id, $this->acting->required());
+        return $this->transport->findMail($id, $this->acting->ref);
     }
 
     /**
@@ -310,7 +306,7 @@ class Relay
      */
     public function releaseMail(string $id): Mail
     {
-        return $this->transport->releaseMail($id, $this->acting->required());
+        return $this->transport->releaseMail($id, $this->acting->ref);
     }
 
     /**
@@ -320,7 +316,7 @@ class Relay
      */
     public function discardMail(string $id): Mail
     {
-        return $this->transport->discardMail($id, $this->acting->required());
+        return $this->transport->discardMail($id, $this->acting->ref);
     }
 
     // Project

@@ -65,7 +65,7 @@ it('fails on what would break and only warns about what might be meant', functio
     config()->set('relay.project', 'missing-ws');
     config()->set('relay.store.enabled', true);
     config()->set('relay.connections.billing', ['project' => 'x']);
-    config()->set('relay.connections.live', ['key' => 'rlk_live_0123456789', 'project_key' => true]);
+    config()->set('relay.connections.live', ['key' => 'rlk_live_0123456789']);
     Relay::webhookRoutes();
     app('router')->getRoutes()->refreshNameLookups();
 
@@ -76,9 +76,10 @@ it('fails on what would break and only warns about what might be meant', functio
         // Named, but Relay has no such project.
         'connection default / Project' => 'failure',
         'connection billing / Key and URL' => 'failure',
-        // The prefix says live, Relay says test; and project_key is on for an organization key.
+        // The prefix says live, Relay says test.
         'connection live / Environment' => 'failure',
-        'connection live / Project' => 'failure',
+        // No project named is fine: Relay uses the default one.
+        'connection live / Project' => 'ok',
         // A route with no secret refuses every delivery.
         'webhooks / Secret' => 'failure',
         'store / Table relay_messages' => 'failure',
@@ -94,7 +95,7 @@ it('looks at the configuration alone with --no-ping, and says when Relay does no
 
     expect(doctorSummary(app(Doctor::class)->run(ping: false)))->toMatchArray([
         'connection default / Key' => 'ok',
-        'connection default / Project' => 'warning',
+        'connection default / Project' => 'ok',
         'webhooks / Route' => 'warning',
     ])
         ->and(doctorSummary(app(Doctor::class)->run()))->toMatchArray(['connection default / Relay answers' => 'failure']);

@@ -8,7 +8,6 @@ use Cbox\Relay\Client\Data\NewEvent;
 use Cbox\Relay\Client\Exceptions\RelayForbidden;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
-use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Exceptions\RelayRateLimited;
 use Cbox\Relay\Client\Exceptions\RelayTooLarge;
 use Cbox\Relay\Client\Exceptions\RelayUnauthorized;
@@ -92,12 +91,12 @@ it('stamps an event without a time with the moment publish was called', function
     Bus::assertDispatched(PublishEvent::class, fn (PublishEvent $job): bool => $job->occurredAt === '2026-11-12T10:00:00+00:00');
 });
 
-it('dispatches nothing when the project is missing', function (): void {
+it('dispatches without a project when none is named', function (): void {
     Bus::fake();
 
-    expect(fn () => Relay::publish('order.paid'))->toThrow(RelayProjectRequired::class);
+    Relay::publish('order.paid');
 
-    Bus::assertNothingDispatched();
+    Bus::assertDispatched(PublishEvent::class, fn (PublishEvent $job): bool => $job->project === null);
 });
 
 it('binds the queued publisher by default and the immediate one with relay.publish.sync', function (): void {

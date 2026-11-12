@@ -38,27 +38,14 @@ return [
     |--------------------------------------------------------------------------
     |
     | Optional. With an organization key, the project every call acts for (its
-    | external ref or its `prj_…` id), sent as the `Relay-Project` header. Leave
-    | it empty with a project key: that key is already locked to its project (see
-    | `project_key` below). `Relay::forProject()` overrides it per call.
+    | external ref or its `prj_…` id), sent as the `Relay-Project` header.
+    | `Relay::forProject()` overrides it per call. Left empty, no header is
+    | sent: a project key acts for its own project, and an organization key for
+    | the environment's `default` project, which Relay makes on first use.
     |
     */
 
     'project' => env('RELAY_PROJECT'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Project key
-    |--------------------------------------------------------------------------
-    |
-    | Most calls act for one project. With an organization key and no project named
-    | they throw RelayProjectRequired before anything is sent. Set this to true
-    | when RELAY_KEY is a project key: Relay already knows its project, so those
-    | calls go out without the header.
-    |
-    */
-
-    'project_key' => (bool) env('RELAY_PROJECT_KEY', false),
 
     /*
     |--------------------------------------------------------------------------
@@ -151,7 +138,6 @@ return [
     | 'billing' => [
     |     'key' => env('RELAY_BILLING_KEY'),
     |     'project' => env('RELAY_BILLING_PROJECT'),
-    |     'project_key' => false,
     |     'webhook' => ['secret' => env('RELAY_BILLING_WEBHOOK_SECRET')],
     | ],
     |

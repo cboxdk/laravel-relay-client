@@ -25,7 +25,7 @@ class InboundRoutes
      */
     public function register(InboundRouteType $type, string $domain, ?string $prefix = null, ?string $idempotencyKey = null): InboundRoute
     {
-        return $this->transport->createInboundRoute($type, $domain, $prefix, $idempotencyKey, $this->project->required());
+        return $this->transport->createInboundRoute($type, $domain, $prefix, $idempotencyKey, $this->project->ref);
     }
 
     /**
@@ -42,7 +42,7 @@ class InboundRoutes
             throw new InvalidArgumentException("'{$address}' is not a mail address.");
         }
 
-        return $this->transport->createInboundRoute(InboundRouteType::Address, substr($address, $at + 1), null, $idempotencyKey, $this->project->required(), substr($address, 0, $at));
+        return $this->transport->createInboundRoute(InboundRouteType::Address, substr($address, $at + 1), null, $idempotencyKey, $this->project->ref, substr($address, 0, $at));
     }
 
     /**
@@ -52,7 +52,7 @@ class InboundRoutes
      */
     public function registerForwarding(string $address, ?string $idempotencyKey = null): InboundRoute
     {
-        return $this->transport->createInboundRoute(InboundRouteType::Address, null, null, $idempotencyKey, $this->project->required(), null, $address);
+        return $this->transport->createInboundRoute(InboundRouteType::Address, null, null, $idempotencyKey, $this->project->ref, null, $address);
     }
 
     /**
@@ -60,18 +60,18 @@ class InboundRoutes
      */
     public function list(): array
     {
-        return $this->transport->listInboundRoutes($this->project->required());
+        return $this->transport->listInboundRoutes($this->project->ref);
     }
 
     /** Look for a domain route's DNS record now. The answer is the route either way; its status says whether it was found. */
     public function verify(string $id): InboundRoute
     {
-        return $this->transport->verifyInboundRoute($id, $this->project->required());
+        return $this->transport->verifyInboundRoute($id, $this->project->ref);
     }
 
     /** Stop receiving for the pattern. Mail already received is kept. */
     public function remove(string $id): void
     {
-        $this->transport->deleteInboundRoute($id, $this->project->required());
+        $this->transport->deleteInboundRoute($id, $this->project->ref);
     }
 }

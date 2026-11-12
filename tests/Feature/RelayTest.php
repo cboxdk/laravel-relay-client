@@ -167,10 +167,9 @@ it('publishes its config', function (): void {
 it('ships the documented defaults', function (): void {
     $config = require __DIR__.'/../../config/relay.php';
 
-    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'project', 'project_key', 'publish', 'webhook', 'store', 'connections'])
+    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'project', 'publish', 'webhook', 'store', 'connections'])
         ->and($config['timeout'])->toBe(5.0)
         ->and($config['connect_timeout'])->toBe(2.0)
-        ->and($config['project_key'])->toBeFalse()
         ->and($config['publish'])->toBe(['sync' => false, 'connection' => null, 'queue' => null, 'tries' => 5, 'backoff' => [10, 30, 120, 600]])
         ->and($config['webhook'])->toBe(['secret' => null, 'previous_secret' => null, 'tolerance' => 300, 'route' => null, 'cache' => null, 'dedupe' => 172800])
         // Off unless asked for: no webhook route, no local store, one connection.
@@ -182,7 +181,6 @@ it('reads the publish and webhook settings, falling back when they are unusable'
     $config = app(RelayConfig::class);
 
     expect($config->publishSync())->toBeFalse()
-        ->and($config->projectKey())->toBeFalse()
         ->and($config->publishConnection())->toBeNull()
         ->and($config->publishQueue())->toBeNull()
         ->and($config->publishTries())->toBe(5)
@@ -192,10 +190,8 @@ it('reads the publish and webhook settings, falling back when they are unusable'
 
     config()->set('relay.publish', ['sync' => 'true', 'connection' => ' sqs ', 'queue' => 'relay', 'tries' => 0, 'backoff' => '5, 15,x']);
     config()->set('relay.webhook', ['secret' => 'new', 'previous_secret' => 'old', 'tolerance' => -1]);
-    config()->set('relay.project_key', '1');
 
     expect($config->publishSync())->toBeTrue()
-        ->and($config->projectKey())->toBeTrue()
         ->and($config->publishConnection())->toBe('sqs')
         ->and($config->publishQueue())->toBe('relay')
         ->and($config->publishTries())->toBe(5)

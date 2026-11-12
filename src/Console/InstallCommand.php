@@ -32,7 +32,6 @@ class InstallCommand extends Command
             'RELAY_URL' => 'where Relay\'s API is, e.g. https://api.cboxrelay.com',
             'RELAY_KEY' => 'an API key from Relay\'s console (rlk_live_… or rlk_test_…)',
             'RELAY_PROJECT' => 'optional: the project an organization key acts for by default',
-            'RELAY_PROJECT_KEY' => 'true when RELAY_KEY is a project key',
             'RELAY_WEBHOOK_SECRET' => 'the signing secret of the endpoint Relay sends this app\'s webhooks to',
         ] as $key => $what) {
             $this->components->twoColumnDetail($key, $what);

@@ -29,7 +29,7 @@ class RelayConfig
     public function connection(?string $name = null): ConnectionConfig
     {
         if ($name === null || $name === self::DEFAULT_CONNECTION) {
-            return new ConnectionConfig(self::DEFAULT_CONNECTION, $this->url(), $this->key(), $this->project(), $this->projectKey(), $this->timeout(), $this->connectTimeout(), $this->webhookSecrets());
+            return new ConnectionConfig(self::DEFAULT_CONNECTION, $this->url(), $this->key(), $this->project(), $this->timeout(), $this->connectTimeout(), $this->webhookSecrets());
         }
 
         $base = "relay.connections.{$name}";
@@ -46,7 +46,6 @@ class RelayConfig
             $url === '' ? $this->url() : $url,
             $this->string("{$base}.key"),
             $project === '' ? null : $project,
-            $this->flag("{$base}.project_key"),
             $this->seconds("{$base}.timeout", $this->timeout()),
             $this->seconds("{$base}.connect_timeout", $this->connectTimeout()),
             array_values(array_filter(
@@ -110,12 +109,6 @@ class RelayConfig
         $project = $this->string('relay.project');
 
         return $project === '' ? null : $project;
-    }
-
-    /** Whether the key is a project key: locked to one project, so calls need no `Relay-Project`. */
-    public function projectKey(): bool
-    {
-        return $this->flag('relay.project_key');
     }
 
     /** Whether `Relay::publish()` calls Relay in the caller's process instead of from the queue. */

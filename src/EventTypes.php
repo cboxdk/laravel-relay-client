@@ -27,7 +27,7 @@ class EventTypes
     {
         return $this->transport->putEventTypes(
             array_map(static fn (EventType|string $type): EventType => is_string($type) ? new EventType($type) : $type, $types),
-            $this->project->required(),
+            $this->project->ref,
         );
     }
 
@@ -36,6 +36,6 @@ class EventTypes
      */
     public function all(): array
     {
-        return $this->transport->listEventTypes($this->project->required());
+        return $this->transport->listEventTypes($this->project->ref);
     }
 }

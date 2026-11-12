@@ -17,7 +17,6 @@ readonly class ConnectionConfig
      * @param  string  $url  the API, without a trailing slash; empty when unconfigured
      * @param  string  $key  the API key; empty when unconfigured. Never log it
      * @param  string|null  $project  the project every call acts for unless told otherwise
-     * @param  bool  $projectKey  the key is a project key: calls need no `Relay-Project`
      * @param  list<string>  $webhookSecrets  the current secret and, during a rotation, the previous one
      */
     public function __construct(
@@ -26,7 +25,6 @@ readonly class ConnectionConfig
         #[SensitiveParameter]
         public string $key,
         public ?string $project = null,
-        public bool $projectKey = false,
         public float $timeout = 5.0,
         public float $connectTimeout = 2.0,
         #[SensitiveParameter]

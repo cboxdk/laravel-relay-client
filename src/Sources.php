@@ -25,7 +25,7 @@ class Sources
      */
     public function register(string $name, SourceScheme $scheme, #[SensitiveParameter] string $secret, ?string $idempotencyKey = null): Source
     {
-        return $this->transport->createSource($name, $scheme, $secret, $idempotencyKey, $this->project->required());
+        return $this->transport->createSource($name, $scheme, $secret, $idempotencyKey, $this->project->ref);
     }
 
     /**
@@ -33,35 +33,35 @@ class Sources
      */
     public function list(): array
     {
-        return $this->transport->listSources($this->project->required());
+        return $this->transport->listSources($this->project->ref);
     }
 
     /** The source, or null when there is none with that id in the project. */
     public function find(string $id): ?Source
     {
-        return $this->transport->findSource($id, $this->project->required());
+        return $this->transport->findSource($id, $this->project->ref);
     }
 
     /** Set the provider's new signing secret. The old one keeps verifying until `$source->previousSecretExpiresAt`. */
     public function rotateSecret(string $id, #[SensitiveParameter] string $secret): Source
     {
-        return $this->transport->rotateSourceSecret($id, $secret, $this->project->required());
+        return $this->transport->rotateSourceSecret($id, $secret, $this->project->ref);
     }
 
     /** Stop accepting calls: the source's URL answers the provider 404 while paused. */
     public function pause(string $id): Source
     {
-        return $this->transport->pauseSource($id, $this->project->required());
+        return $this->transport->pauseSource($id, $this->project->ref);
     }
 
     public function resume(string $id): Source
     {
-        return $this->transport->resumeSource($id, $this->project->required());
+        return $this->transport->resumeSource($id, $this->project->ref);
     }
 
     /** Stop taking webhooks from the provider for good. Its URL answers 404 from then on. */
     public function delete(string $id): void
     {
-        $this->transport->deleteSource($id, $this->project->required());
+        $this->transport->deleteSource($id, $this->project->ref);
     }
 }

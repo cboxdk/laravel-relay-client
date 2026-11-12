@@ -20,7 +20,7 @@ class Events
     /** One event with its payload and its deliveries; null when there is none with that id. */
     public function find(string $id): ?Event
     {
-        return $this->transport->findEvent($id, $this->project->required());
+        return $this->transport->findEvent($id, $this->project->ref);
     }
 
     /**
@@ -30,12 +30,12 @@ class Events
      */
     public function list(?string $type = null, ?int $limit = null, ?string $cursor = null): Page
     {
-        return $this->transport->listEvents($type, $limit, $cursor, $this->project->required());
+        return $this->transport->listEvents($type, $limit, $cursor, $this->project->ref);
     }
 
     /** Queue a delivery that failed for good again. `$deliveryId` is a `WebhookDelivery::$id`. */
     public function retryDelivery(string $deliveryId): DeliveryRetry
     {
-        return $this->transport->retryWebhookDelivery($deliveryId, $this->project->required());
+        return $this->transport->retryWebhookDelivery($deliveryId, $this->project->ref);
     }
 }

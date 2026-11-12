@@ -20,7 +20,7 @@ class Suppressions
     /** Never send to the address again. Adding it twice keeps its first reason (`$suppression->created` is then false). */
     public function add(string $address, ?SuppressionReason $reason = null, ?string $idempotencyKey = null): Suppression
     {
-        return $this->transport->createSuppression($address, $reason, $idempotencyKey, $this->project->required());
+        return $this->transport->createSuppression($address, $reason, $idempotencyKey, $this->project->ref);
     }
 
     /**
@@ -28,12 +28,12 @@ class Suppressions
      */
     public function list(?int $limit = null, ?string $cursor = null): Page
     {
-        return $this->transport->listSuppressions($limit, $cursor, $this->project->required());
+        return $this->transport->listSuppressions($limit, $cursor, $this->project->ref);
     }
 
     /** Allow sending to the address again. */
     public function remove(string $address): void
     {
-        $this->transport->deleteSuppression($address, $this->project->required());
+        $this->transport->deleteSuppression($address, $this->project->ref);
     }
 }

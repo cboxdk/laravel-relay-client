@@ -135,7 +135,6 @@ class RelayServiceProvider extends ServiceProvider
                 $config->publishSync() || ! $transport instanceof HttpRelayTransport => new ImmediateEventPublisher($transport),
                 default => new QueuedEventPublisher($app->make(Dispatcher::class), $config, $name),
             },
-            $connection->projectKey,
             static fn (string $other): Relay => self::client($app, $other),
             $app->make(MessageStore::class),
             $name,
