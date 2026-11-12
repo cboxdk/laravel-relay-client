@@ -34,31 +34,31 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Default scope
+    | Default project
     |--------------------------------------------------------------------------
     |
-    | Optional. With an organization key, the scope every call acts for (its
-    | external ref or its `scp_…` id), sent as the `Relay-Scope` header. Leave
-    | it empty with a scope key: that key is already locked to its scope (see
-    | `scope_key` below). `Relay::forScope()` overrides it per call.
+    | Optional. With an organization key, the project every call acts for (its
+    | external ref or its `prj_…` id), sent as the `Relay-Project` header. Leave
+    | it empty with a project key: that key is already locked to its project (see
+    | `project_key` below). `Relay::forProject()` overrides it per call.
     |
     */
 
-    'scope' => env('RELAY_SCOPE'),
+    'project' => env('RELAY_PROJECT'),
 
     /*
     |--------------------------------------------------------------------------
-    | Scope key
+    | Project key
     |--------------------------------------------------------------------------
     |
-    | Most calls act for one scope. With an organization key and no scope named
-    | they throw RelayScopeRequired before anything is sent. Set this to true
-    | when RELAY_KEY is a scope key: Relay already knows its scope, so those
+    | Most calls act for one project. With an organization key and no project named
+    | they throw RelayProjectRequired before anything is sent. Set this to true
+    | when RELAY_KEY is a project key: Relay already knows its project, so those
     | calls go out without the header.
     |
     */
 
-    'scope_key' => (bool) env('RELAY_SCOPE_KEY', false),
+    'project_key' => (bool) env('RELAY_PROJECT_KEY', false),
 
     /*
     |--------------------------------------------------------------------------

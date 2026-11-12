@@ -13,8 +13,8 @@ class ImmediateEventPublisher implements EventPublisher
 {
     public function __construct(private readonly RelayTransport $transport) {}
 
-    public function publish(NewEvent $event, ?string $scope = null): void
+    public function publish(NewEvent $event, ?string $project = null): void
     {
-        $this->transport->publishEvent($event, $scope);
+        $this->transport->publishEvent($event, $project);
     }
 }

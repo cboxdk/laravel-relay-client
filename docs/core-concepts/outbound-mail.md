@@ -14,7 +14,7 @@ weight: 31
 ## Sending domains
 
 ```php
-$domains = Relay::forScope($ref)->domains();
+$domains = Relay::forProject($ref)->domains();
 
 $domain = $domains->register('acme.dk');
 
@@ -35,11 +35,11 @@ $reputation->sent; $reputation->bounced; $reputation->complained;   // recipient
 $reputation->bounceRate; $reputation->complaintRate;                // null when nothing was sent
 ```
 
-These are the numbers Relay's automatic pause looks at, for this scope's mail from the
+These are the numbers Relay's automatic pause looks at, for this project's mail from the
 domain.
 
 A domain can send once its status is `verified`. A verified domain whose record has
-gone becomes `failed`. Each scope proves a domain for itself.
+gone becomes `failed`. Each project proves a domain for itself.
 
 Needs `domains:manage`.
 
@@ -48,7 +48,7 @@ Needs `domains:manage`.
 ```php
 use Cbox\Relay\Client\Data\SuppressionReason;
 
-$suppressions = Relay::forScope($ref)->suppressions();
+$suppressions = Relay::forProject($ref)->suppressions();
 
 $suppressions->add('ann@example.com', SuppressionReason::Unsubscribe)->created;   // false when it was listed already
 $suppressions->list(limit: 50);   // Page<Suppression>: address, reason, source, createdAt
@@ -67,7 +67,7 @@ use Cbox\Relay\Client\Data\MailAddress;
 use Cbox\Relay\Client\Data\MailAttachment;
 use Cbox\Relay\Client\Data\OutgoingMail;
 
-$mail = Relay::forScope($ref)->sendMail(new OutgoingMail(
+$mail = Relay::forProject($ref)->sendMail(new OutgoingMail(
     from: new MailAddress('hello@acme.dk', 'Acme'),
     to: ['ann@example.com'],
     subject: 'Your order',
@@ -83,7 +83,7 @@ $mail->status;       // 'queued', 'blocked' or 'quarantined' right after sending
 $mail->accepted();   // queued or sent
 $mail->reason;       // why it was held, blocked or failed
 
-Relay::forScope($ref)->mail($mail->id);   // ?Mail, with ->recipients and ->sentAt
+Relay::forProject($ref)->mail($mail->id);   // ?Mail, with ->recipients and ->sentAt
 ```
 
 | Status | Meaning |
@@ -91,11 +91,11 @@ Relay::forScope($ref)->mail($mail->id);   // ?Mail, with ->recipients and ->sent
 | `queued` | It will be signed and handed to the mail server |
 | `sent` | Handed to the mail server. Not the same as delivered to an inbox |
 | `blocked` | Every recipient is on the suppression list |
-| `quarantined` | Held by the filter, against a threshold the scope set |
+| `quarantined` | Held by the filter, against a threshold the project set |
 | `failed` | It could not be handed over |
 
 Relay refuses (422, `RelayInvalid`) a sender whose domain is not a verified sending
-domain of the scope, a scope that was paused for bounces or complaints, more than 50
+domain of the project, a project that was paused for bounces or complaints, more than 50
 recipients, 20 attachments or 10 MB, and a header it does not let a sender set.
 
 ### A held mail
@@ -106,11 +106,11 @@ decide:
 ```php
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 
-$mail = Relay::forScope($ref)->releaseMail($id);   // send it after all: 'queued'
-$mail = Relay::forScope($ref)->discardMail($id);   // never send it: 'blocked', its content is removed
+$mail = Relay::forProject($ref)->releaseMail($id);   // send it after all: 'queued'
+$mail = Relay::forProject($ref)->discardMail($id);   // never send it: 'blocked', its content is removed
 
 try {
-    Relay::forScope($ref)->releaseMail($id);
+    Relay::forProject($ref)->releaseMail($id);
 } catch (RelayConflict $e) {
     $e->type() === 'mail_not_held';   // someone decided already, or it was never held
 }
@@ -119,7 +119,7 @@ try {
 A release queues the mail as if it had not been held; recipients suppressed since are
 left out. Both calls answer the `Mail` and throw `RelayConflict` with the type
 `mail_not_held` when its status is not `quarantined`, so the second of two people
-deciding hears about it. A mail the scope does not have throws `RelayNotFound`.
+deciding hears about it. A mail the project does not have throws `RelayNotFound`.
 
 A held mail nobody decides on keeps its content for 30 days like any other and then
 stays as it is, unsent. That is Relay's retention, not this package's.
@@ -142,13 +142,13 @@ The package registers a `relay` transport with Laravel's mail manager.
 // config/mail.php
 'mailers' => [
     'relay' => ['transport' => 'relay'],
-    // 'relay' => ['transport' => 'relay', 'scope' => 'workspace-42'],   // a scope for this mailer
+    // 'relay' => ['transport' => 'relay', 'project' => 'workspace-42'],   // a project for this mailer
 ],
 ```
 
 ```dotenv
 MAIL_MAILER=relay
-RELAY_SCOPE=workspace-42
+RELAY_PROJECT=workspace-42
 ```
 
 Every mail the mailer sends becomes one `POST /v1/mail`. The Symfony `Email` is mapped
@@ -171,12 +171,12 @@ ordinary attachment.
 Two headers steer one send and are never passed on:
 
 ```php
-$message->getHeaders()->addTextHeader('X-Relay-Scope', $workspace->id);              // send for this scope
+$message->getHeaders()->addTextHeader('X-Relay-Project', $workspace->id);              // send for this project
 $message->getHeaders()->addTextHeader('X-Relay-Idempotency-Key', "invoice:{$id}");   // the Idempotency-Key
 ```
 
-The scope is, in order: the `X-Relay-Scope` header, the mailer's `scope`, `relay.scope`.
-With none (and no `relay.scope_key`) the send throws `RelayScopeRequired`.
+The project is, in order: the `X-Relay-Project` header, the mailer's `project`, `relay.project`.
+With none (and no `relay.project_key`) the send throws `RelayProjectRequired`.
 
 After the send the message carries `X-Relay-Mail-Id` and `X-Relay-Mail-Status`; read
 them in a `MessageSent` listener to keep the id. A mail Relay stored but did not queue

@@ -16,7 +16,7 @@ readonly class MailBounced implements RelayEvent
 {
     public function __construct(
         public string $id,
-        public string $scopeId,
+        public string $projectId,
         public string $recipient,
         public bool $permanent = true,
         public ?string $status = null,
@@ -32,7 +32,7 @@ readonly class MailBounced implements RelayEvent
     {
         return new self(
             id: Payload::string($data, 'id'),
-            scopeId: Payload::string($data, 'scope_id'),
+            projectId: Payload::string($data, 'project_id'),
             recipient: Payload::string($data, 'recipient'),
             permanent: Payload::bool($data, 'permanent'),
             status: Payload::nullableString($data, 'status'),

@@ -13,7 +13,7 @@ use Cbox\Relay\Client\Data\SourceScheme;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Jobs\PublishEvent;
 use Illuminate\Http\Client\Request;
@@ -43,7 +43,7 @@ describe('over HTTP', function (): void {
             'relay.test/v1/sources/src_1/resume' => Http::response(sourceBody()),
         ]);
 
-        $sources = Relay::forScope('ws_1')->sources();
+        $sources = Relay::forProject('ws_1')->sources();
         $source = $sources->register('stripe', SourceScheme::Stripe, 'whsec_provider', 'src-1');
 
         expect($source->url)->toBe('https://in.cboxrelay.com/src_1')
@@ -60,7 +60,7 @@ describe('over HTTP', function (): void {
         $sources->delete('src_1');
 
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->url() === 'https://relay.test/v1/sources'
-            && $request->hasHeader('Relay-Scope', 'ws_1') && $request->hasHeader('Idempotency-Key', 'src-1')
+            && $request->hasHeader('Relay-Project', 'ws_1') && $request->hasHeader('Idempotency-Key', 'src-1')
             && $request->body() === '{"name":"stripe","scheme":"stripe","secret":"whsec_provider"}');
         Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT' && $request->url() === 'https://relay.test/v1/sources/src_1/secret' && $request->body() === '{"secret":"whsec_new"}');
         Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE' && $request->url() === 'https://relay.test/v1/sources/src_1');
@@ -69,17 +69,17 @@ describe('over HTTP', function (): void {
     it('erases a subject', function (): void {
         Http::fake(['relay.test/v1/erasures' => Http::response(['subject' => 'contact_42', 'removed' => 7])]);
 
-        $erasure = Relay::forScope('ws_1')->eraseSubject('contact_42');
+        $erasure = Relay::forProject('ws_1')->eraseSubject('contact_42');
 
         expect($erasure->subject)->toBe('contact_42')->and($erasure->removed)->toBe(7);
-        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->body() === '{"subject":"contact_42"}' && $request->hasHeader('Relay-Scope', 'ws_1'));
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->body() === '{"subject":"contact_42"}' && $request->hasHeader('Relay-Project', 'ws_1'));
     });
 
     it('sends the subject with a publish and leaves it out when there is none', function (): void {
         Http::fake(['relay.test/v1/events' => Http::response(['id' => 'evt_1', 'deliveries' => 0, 'duplicate' => false], 202)]);
 
-        Relay::forScope('ws_1')->publishNow('order.paid', ['id' => 1], 'k1', subject: 'contact_42');
-        Relay::forScope('ws_1')->publishNow('order.paid', ['id' => 1], 'k2');
+        Relay::forProject('ws_1')->publishNow('order.paid', ['id' => 1], 'k1', subject: 'contact_42');
+        Relay::forProject('ws_1')->publishNow('order.paid', ['id' => 1], 'k2');
 
         Http::assertSent(fn (Request $request): bool => $request->body() === '{"type":"order.paid","payload":{"id":1},"idempotency_key":"k1","subject":"contact_42"}');
         Http::assertSent(fn (Request $request): bool => $request->body() === '{"type":"order.paid","payload":{"id":1},"idempotency_key":"k2"}');
@@ -91,14 +91,14 @@ describe('over HTTP', function (): void {
             'relay.test/v1/domains/sdm_2/reputation' => Http::response(['id' => 'sdm_2', 'domain' => 'new.dk', 'window_days' => 7, 'sent' => 0, 'bounced' => 0, 'complained' => 0, 'bounce_rate' => null, 'complaint_rate' => null]),
         ]);
 
-        $reputation = Relay::forScope('ws_1')->domains()->reputation('sdm_1');
+        $reputation = Relay::forProject('ws_1')->domains()->reputation('sdm_1');
 
         expect($reputation->sent)->toBe(200)
             ->and($reputation->bounced)->toBe(4)
             ->and($reputation->bounceRate)->toBe(0.02)
             ->and($reputation->complaintRate)->toBe(0.0)
             ->and($reputation->windowDays)->toBe(7)
-            ->and(Relay::forScope('ws_1')->domains()->reputation('sdm_2')->bounceRate)->toBeNull();
+            ->and(Relay::forProject('ws_1')->domains()->reputation('sdm_2')->bounceRate)->toBeNull();
     });
 
     it('reads a ping outcome as an enum without breaking on one it does not know', function (): void {
@@ -107,7 +107,7 @@ describe('over HTTP', function (): void {
             ->push(['outcome' => 'breaker_open', 'response_code' => null, 'duration_ms' => 0, 'error' => 'The circuit is open.'])
             ->push(['outcome' => 'something_new', 'response_code' => null, 'duration_ms' => 0, 'error' => null])]);
 
-        $endpoints = Relay::forScope('ws_1')->endpoints();
+        $endpoints = Relay::forProject('ws_1')->endpoints();
         [$ok, $open, $unknown] = [$endpoints->ping('ep_1'), $endpoints->ping('ep_1'), $endpoints->ping('ep_1')];
 
         expect($ok->outcome())->toBe(AttemptOutcome::Success)
@@ -119,38 +119,38 @@ describe('over HTTP', function (): void {
             ->and($unknown->succeeded())->toBeFalse();
     });
 
-    it('maps Relay\'s scope_required to RelayScopeRequired and keeps invalid_request as RelayInvalid', function (): void {
+    it('maps Relay\'s project_required to RelayProjectRequired and keeps invalid_request as RelayInvalid', function (): void {
         Http::fake([
-            'relay.test/v1/endpoints' => Http::response(['type' => 'https://cboxrelay.com/problems/scope_required', 'title' => 'Unprocessable content', 'status' => 422, 'detail' => 'This call acts for one scope. Send the Relay-Scope header.', 'errors' => ['Relay-Scope' => ['The Relay-Scope header is required.']]], 422),
-            'relay.test/v1/domains' => Http::response(['type' => 'https://cboxrelay.com/problems/invalid_request', 'title' => 'Unprocessable content', 'status' => 422, 'errors' => ['Relay-Scope' => ['The Relay-Scope header is required.']]], 422),
+            'relay.test/v1/endpoints' => Http::response(['type' => 'https://cboxrelay.com/problems/project_required', 'title' => 'Unprocessable content', 'status' => 422, 'detail' => 'This call acts for one project. Send the Relay-Project header.', 'errors' => ['Relay-Project' => ['The Relay-Project header is required.']]], 422),
+            'relay.test/v1/domains' => Http::response(['type' => 'https://cboxrelay.com/problems/invalid_request', 'title' => 'Unprocessable content', 'status' => 422, 'errors' => ['Relay-Project' => ['The Relay-Project header is required.']]], 422),
         ]);
 
         try {
             app(RelayTransport::class)->listEndpoints();
             $this->fail('Nothing was thrown.');
-        } catch (RelayScopeRequired $e) {
+        } catch (RelayProjectRequired $e) {
             expect($e->status())->toBe(422)
-                ->and($e->problem?->type)->toEndWith('scope_required')
-                ->and($e->getMessage())->toContain('Send the Relay-Scope header');
+                ->and($e->problem?->type)->toEndWith('project_required')
+                ->and($e->getMessage())->toContain('Send the Relay-Project header');
         }
 
         expect(fn () => app(RelayTransport::class)->listDomains())->toThrow(RelayInvalid::class);
     });
 
-    it('fails the publish job for good on scope_required', function (): void {
-        Http::fake(['relay.test/v1/events' => Http::response(['type' => 'https://cboxrelay.com/problems/scope_required', 'title' => 'Unprocessable content', 'status' => 422], 422)]);
+    it('fails the publish job for good on project_required', function (): void {
+        Http::fake(['relay.test/v1/events' => Http::response(['type' => 'https://cboxrelay.com/problems/project_required', 'title' => 'Unprocessable content', 'status' => 422], 422)]);
 
         $job = PublishEvent::for(new NewEvent('order.paid', [], 'k1'))->withFakeQueueInteractions();
         $job->handle(app(RelayTransport::class));
 
-        $job->assertFailedWith(RelayScopeRequired::class);
+        $job->assertFailedWith(RelayProjectRequired::class);
     });
 });
 
 it('carries the subject through the queued publisher', function (): void {
     Bus::fake();
 
-    Relay::forScope('ws_1')->publish('order.paid', ['id' => 1], subject: 'contact_42');
+    Relay::forProject('ws_1')->publish('order.paid', ['id' => 1], subject: 'contact_42');
 
     Bus::assertDispatched(PublishEvent::class, function (PublishEvent $job): bool {
         $revived = unserialize(serialize($job));
@@ -162,7 +162,7 @@ it('carries the subject through the queued publisher', function (): void {
 it('refuses a subject Relay would refuse before anything is queued', function (string $subject): void {
     Bus::fake();
 
-    expect(fn () => Relay::forScope('ws_1')->publish('order.paid', subject: $subject))->toThrow(RelayInvalid::class, 'subject');
+    expect(fn () => Relay::forProject('ws_1')->publish('order.paid', subject: $subject))->toThrow(RelayInvalid::class, 'subject');
 
     Bus::assertNothingDispatched();
 })->with([
@@ -181,11 +181,11 @@ it('takes a subject of 191 visible characters', function (): void {
 describe('on the fake', function (): void {
     beforeEach(function (): void {
         $this->relay = Relay::fake();
-        $this->relay->seedScope('ws_1');
-        $this->scoped = Relay::forScope('ws_1');
+        $this->relay->seedProject('ws_1');
+        $this->scoped = Relay::forProject('ws_1');
     });
 
-    it('stores sources per scope and never gives the secret back', function (): void {
+    it('stores sources per project and never gives the secret back', function (): void {
         $this->travelTo('2026-11-12 10:00:00');
         $sources = $this->scoped->sources();
 
@@ -208,8 +208,8 @@ describe('on the fake', function (): void {
         $this->relay->assertSourceRegistered('stripe');
         $this->relay->assertSourceRegistered('stripe', fn (Source $s, string $secret): bool => $s->scheme === 'stripe' && $secret === 'whsec_new');
 
-        $this->relay->seedScope('ws_2');
-        expect(Relay::forScope('ws_2')->sources()->list())->toBe([]);
+        $this->relay->seedProject('ws_2');
+        expect(Relay::forProject('ws_2')->sources()->list())->toBe([]);
 
         $sources->delete($source->id);
         $this->relay->assertNoSourceRegistered();
@@ -262,12 +262,12 @@ describe('on the fake', function (): void {
             ->and(fn () => $this->relay->assertNoSubjectErased())->toThrow(AssertionFailedError::class);
     });
 
-    it('leaves another scope\'s events with the same subject alone', function (): void {
-        $this->relay->seedScope('ws_2');
-        $other = Relay::forScope('ws_2')->publishNow('order.paid', subject: 'contact_42');
+    it('leaves another project\'s events with the same subject alone', function (): void {
+        $this->relay->seedProject('ws_2');
+        $other = Relay::forProject('ws_2')->publishNow('order.paid', subject: 'contact_42');
 
         expect($this->scoped->eraseSubject('contact_42')->removed)->toBe(0)
-            ->and(Relay::forScope('ws_2')->events()->find($other->id))->not->toBeNull();
+            ->and(Relay::forProject('ws_2')->events()->find($other->id))->not->toBeNull();
     });
 
     it('counts a domain\'s reputation from what became of its recipients', function (): void {
@@ -304,8 +304,8 @@ describe('on the fake', function (): void {
         expect($this->scoped->endpoints()->ping($endpoint->id)->outcome())->toBe(AttemptOutcome::Timeout);
     });
 
-    it('needs a scope for sources and erasures', function (): void {
-        expect(fn () => Relay::sources()->list())->toThrow(RelayScopeRequired::class)
-            ->and(fn () => Relay::eraseSubject('contact_42'))->toThrow(RelayScopeRequired::class);
+    it('needs a project for sources and erasures', function (): void {
+        expect(fn () => Relay::sources()->list())->toThrow(RelayProjectRequired::class)
+            ->and(fn () => Relay::eraseSubject('contact_42'))->toThrow(RelayProjectRequired::class);
     });
 });

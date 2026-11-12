@@ -9,7 +9,7 @@ use Cbox\Relay\Client\Data\PushUrgency;
 /**
  * What a notification sends through {@see RelayWebPushChannel}. `$payload` is what your
  * service worker receives (an array goes as a JSON object, at most 3000 bytes); the
- * rest are the push options. `$scope` sends for that scope instead of the client's default.
+ * rest are the push options. `$project` sends for that project instead of the client's default.
  */
 readonly class WebPushMessage
 {
@@ -23,6 +23,6 @@ readonly class WebPushMessage
         public ?int $ttl = null,
         public ?PushUrgency $urgency = null,
         public ?string $topic = null,
-        public ?string $scope = null,
+        public ?string $project = null,
     ) {}
 }

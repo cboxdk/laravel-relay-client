@@ -6,21 +6,21 @@ weight: 34
 
 # React to bounces and complaints
 
-Relay puts a bounced or complaining address on the scope's suppression list by itself.
+Relay puts a bounced or complaining address on the project's suppression list by itself.
 What it cannot do is tell your own data: the contact you should stop mailing, the user
 you should show a warning to. For that, receive its events.
 
 ## Subscribe an endpoint of your own
 
-Once per scope:
+Once per project:
 
 ```php
-$endpoint = Relay::forScope($workspace->id)->endpoints()->register(
+$endpoint = Relay::forProject($workspace->id)->endpoints()->register(
     route('hooks.relay'),
-    ['mail.bounced', 'mail.complained', 'scope.outbound_paused'],
+    ['mail.bounced', 'mail.complained', 'project.outbound_paused'],
 );
 
-// $endpoint->secret goes into RELAY_WEBHOOK_SECRET (or your own store, per scope).
+// $endpoint->secret goes into RELAY_WEBHOOK_SECRET (or your own store, per project).
 ```
 
 ## Receive
@@ -28,7 +28,7 @@ $endpoint = Relay::forScope($workspace->id)->endpoints()->register(
 ```php
 use Cbox\Relay\Client\Webhooks\Events\MailBounced;
 use Cbox\Relay\Client\Webhooks\Events\MailComplained;
-use Cbox\Relay\Client\Webhooks\Events\ScopeOutboundPaused;
+use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundPaused;
 use Cbox\Relay\Client\Webhooks\IncomingWebhook;
 
 Route::post('/hooks/relay', function (Request $request) {
@@ -44,7 +44,7 @@ Route::post('/hooks/relay', function (Request $request) {
     match (true) {
         $event instanceof MailBounced && $event->permanent => Contact::where('email', $event->recipient)->update(['undeliverable_at' => now()]),
         $event instanceof MailComplained => Contact::where('email', $event->recipient)->update(['unsubscribed_at' => now()]),
-        $event instanceof ScopeOutboundPaused => report(new OutboundPaused($event->scopeId, $event->reason)),
+        $event instanceof ProjectOutboundPaused => report(new OutboundPaused($event->projectId, $event->reason)),
         default => null,
     };
 
@@ -52,8 +52,8 @@ Route::post('/hooks/relay', function (Request $request) {
 })->middleware('relay.webhook')->name('hooks.relay');
 ```
 
-`$event->scopeId` is Relay's id (`scp_…`), not your external ref. Keep the `Scope::$id`
-that `scopes()->put()` returned if you need to map it back to a workspace.
+`$event->projectId` is Relay's id (`prj_…`), not your external ref. Keep the `Project::$id`
+that `projects()->put()` returned if you need to map it back to a workspace.
 
 ## Test it
 
@@ -64,7 +64,7 @@ config()->set('relay.webhook.secret', 'test-secret');
 
 $body = json_encode([
     'id' => 'evt_1', 'type' => 'mail.bounced', 'delivery_id' => 'd_1',
-    'data' => ['id' => 'msg_1', 'scope_id' => 'scp_1', 'recipient' => 'ann@example.com', 'permanent' => true, 'status' => '5.1.1', 'diagnostic' => '550 no such user'],
+    'data' => ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com', 'permanent' => true, 'status' => '5.1.1', 'diagnostic' => '550 no such user'],
 ]);
 
 $this->call('POST', '/hooks/relay', server: ['HTTP_X_CBOX_SIGNATURE' => WebhookSignature::header($body, 'test-secret'), 'CONTENT_TYPE' => 'application/json'], content: $body)

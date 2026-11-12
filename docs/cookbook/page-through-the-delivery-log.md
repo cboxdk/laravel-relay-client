@@ -16,9 +16,9 @@ use Illuminate\Http\Request;
 
 public function index(Request $request, Workspace $workspace, Relay $relay)
 {
-    $this->authorize('view', $workspace);   // the scope below comes from the route
+    $this->authorize('view', $workspace);   // the project below comes from the route
 
-    $page = $relay->forScope((string) $workspace->id)->deliveries(
+    $page = $relay->forProject((string) $workspace->id)->deliveries(
         new DeliveryFilter(status: $request->string('status')->toString() ?: null),
         limit: 25,
         cursor: $request->string('cursor')->toString() ?: null,

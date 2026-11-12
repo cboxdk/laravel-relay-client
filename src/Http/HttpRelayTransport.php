@@ -28,11 +28,11 @@ use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Data\Page;
 use Cbox\Relay\Client\Data\Payload;
 use Cbox\Relay\Client\Data\PingResult;
+use Cbox\Relay\Client\Data\Project;
 use Cbox\Relay\Client\Data\Published;
 use Cbox\Relay\Client\Data\PushMessage;
 use Cbox\Relay\Client\Data\PushSubscription;
 use Cbox\Relay\Client\Data\PushUrgency;
-use Cbox\Relay\Client\Data\Scope;
 use Cbox\Relay\Client\Data\SendingDomain;
 use Cbox\Relay\Client\Data\Source;
 use Cbox\Relay\Client\Data\SourceScheme;
@@ -52,8 +52,8 @@ use SensitiveParameter;
 use stdClass;
 
 /**
- * The Relay API over Laravel's HTTP client: bearer key, `Relay-Scope` when acting for a
- * scope, the configured timeouts, and every error answer as a typed exception. One call
+ * The Relay API over Laravel's HTTP client: bearer key, `Relay-Project` when acting for a
+ * project, the configured timeouts, and every error answer as a typed exception. One call
  * is one request; nothing is retried here (the queued publish retries on its own, see
  * {@see PublishEvent}).
  */
@@ -64,12 +64,12 @@ class HttpRelayTransport implements RelayTransport
         private readonly Factory $http,
     ) {}
 
-    public function whoami(?string $scope = null): Identity
+    public function whoami(?string $project = null): Identity
     {
-        return Identity::fromArray($this->body($this->send('GET', '/v1/whoami', scope: $scope)));
+        return Identity::fromArray($this->body($this->send('GET', '/v1/whoami', project: $project)));
     }
 
-    public function putScope(string $externalRef, ?string $name = null, ?array $settings = null, ?string $idempotencyKey = null, ?string $scope = null): Scope
+    public function putProject(string $externalRef, ?string $name = null, ?array $settings = null, ?string $idempotencyKey = null, ?string $project = null): Project
     {
         $body = [];
 
@@ -82,127 +82,127 @@ class HttpRelayTransport implements RelayTransport
             $body['settings'] = $settings === [] ? new stdClass : $settings;
         }
 
-        $response = $this->send('PUT', '/v1/scopes/'.rawurlencode($externalRef), body: $body, scope: $scope, idempotencyKey: $idempotencyKey);
+        $response = $this->send('PUT', '/v1/projects/'.rawurlencode($externalRef), body: $body, project: $project, idempotencyKey: $idempotencyKey);
 
-        return Scope::fromArray($this->body($response), created: $response->status() === 201);
+        return Project::fromArray($this->body($response), created: $response->status() === 201);
     }
 
-    public function findScope(string $ref, ?string $scope = null): ?Scope
+    public function findProject(string $ref, ?string $project = null): ?Project
     {
         try {
-            $response = $this->send('GET', '/v1/scopes/'.rawurlencode($ref), scope: $scope);
+            $response = $this->send('GET', '/v1/projects/'.rawurlencode($ref), project: $project);
         } catch (RelayNotFound) {
             return null;
         }
 
-        return Scope::fromArray($this->body($response));
+        return Project::fromArray($this->body($response));
     }
 
-    public function listScopes(?int $limit = null, ?string $cursor = null, ?string $scope = null): Page
+    public function listProjects(?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
-        $response = $this->send('GET', '/v1/scopes', $this->paging($limit, $cursor), scope: $scope);
+        $response = $this->send('GET', '/v1/projects', $this->paging($limit, $cursor), project: $project);
 
-        return Page::fromArray($this->body($response), static fn (array $item): Scope => Scope::fromArray($item));
+        return Page::fromArray($this->body($response), static fn (array $item): Project => Project::fromArray($item));
     }
 
-    public function listDeliveries(DeliveryFilter $filter = new DeliveryFilter, ?int $limit = null, ?string $cursor = null, ?string $scope = null): Page
+    public function listDeliveries(DeliveryFilter $filter = new DeliveryFilter, ?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
-        $response = $this->send('GET', '/v1/deliveries', [...$filter->toQuery(), ...$this->paging($limit, $cursor)], scope: $scope);
+        $response = $this->send('GET', '/v1/deliveries', [...$filter->toQuery(), ...$this->paging($limit, $cursor)], project: $project);
 
         return Page::fromArray($this->body($response), static fn (array $item): Delivery => Delivery::fromArray($item));
     }
 
-    public function listEventTypes(?string $scope = null): array
+    public function listEventTypes(?string $project = null): array
     {
-        return $this->items($this->send('GET', '/v1/event-types', scope: $scope), EventType::fromArray(...));
+        return $this->items($this->send('GET', '/v1/event-types', project: $project), EventType::fromArray(...));
     }
 
-    public function putEventTypes(array $types, ?string $scope = null): array
+    public function putEventTypes(array $types, ?string $project = null): array
     {
         $body = ['types' => array_map(static fn (EventType $type): array => $type->toArray(), $types)];
 
-        return $this->items($this->send('PUT', '/v1/event-types', body: $body, scope: $scope), EventType::fromArray(...));
+        return $this->items($this->send('PUT', '/v1/event-types', body: $body, project: $project), EventType::fromArray(...));
     }
 
-    public function publishEvent(NewEvent $event, ?string $scope = null): Published
+    public function publishEvent(NewEvent $event, ?string $project = null): Published
     {
-        return Published::fromArray($this->body($this->send('POST', '/v1/events', body: $event->toArray(), scope: $scope)));
+        return Published::fromArray($this->body($this->send('POST', '/v1/events', body: $event->toArray(), project: $project)));
     }
 
-    public function publishEvents(array $events, ?string $scope = null): array
+    public function publishEvents(array $events, ?string $project = null): array
     {
         $body = ['events' => array_map(static fn (NewEvent $event): array => $event->toArray(), $events)];
 
-        return $this->items($this->send('POST', '/v1/events/batch', body: $body, scope: $scope), Published::fromArray(...));
+        return $this->items($this->send('POST', '/v1/events/batch', body: $body, project: $project), Published::fromArray(...));
     }
 
-    public function listEvents(?string $type = null, ?int $limit = null, ?string $cursor = null, ?string $scope = null): Page
+    public function listEvents(?string $type = null, ?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
         $query = [...($type === null || $type === '' ? [] : ['type' => $type]), ...$this->paging($limit, $cursor)];
 
-        return Page::fromArray($this->body($this->send('GET', '/v1/events', $query, scope: $scope)), Event::fromArray(...));
+        return Page::fromArray($this->body($this->send('GET', '/v1/events', $query, project: $project)), Event::fromArray(...));
     }
 
-    public function findEvent(string $id, ?string $scope = null): ?Event
+    public function findEvent(string $id, ?string $project = null): ?Event
     {
-        $body = $this->find('/v1/events/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/events/'.rawurlencode($id), $project);
 
         return $body === null ? null : Event::fromArray($body);
     }
 
-    public function retryWebhookDelivery(string $id, ?string $scope = null): DeliveryRetry
+    public function retryWebhookDelivery(string $id, ?string $project = null): DeliveryRetry
     {
-        return DeliveryRetry::fromArray($this->body($this->send('POST', '/v1/webhook-deliveries/'.rawurlencode($id).'/retry', scope: $scope)));
+        return DeliveryRetry::fromArray($this->body($this->send('POST', '/v1/webhook-deliveries/'.rawurlencode($id).'/retry', project: $project)));
     }
 
-    public function listEndpoints(?string $scope = null): array
+    public function listEndpoints(?string $project = null): array
     {
-        return $this->items($this->send('GET', '/v1/endpoints', scope: $scope), Endpoint::fromArray(...));
+        return $this->items($this->send('GET', '/v1/endpoints', project: $project), Endpoint::fromArray(...));
     }
 
-    public function createEndpoint(NewEndpoint $endpoint, ?string $idempotencyKey = null, ?string $scope = null): Endpoint
+    public function createEndpoint(NewEndpoint $endpoint, ?string $idempotencyKey = null, ?string $project = null): Endpoint
     {
-        return Endpoint::fromArray($this->body($this->send('POST', '/v1/endpoints', body: $endpoint->toArray(), scope: $scope, idempotencyKey: $idempotencyKey)));
+        return Endpoint::fromArray($this->body($this->send('POST', '/v1/endpoints', body: $endpoint->toArray(), project: $project, idempotencyKey: $idempotencyKey)));
     }
 
-    public function findEndpoint(string $id, ?string $scope = null): ?Endpoint
+    public function findEndpoint(string $id, ?string $project = null): ?Endpoint
     {
-        $body = $this->find('/v1/endpoints/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/endpoints/'.rawurlencode($id), $project);
 
         return $body === null ? null : Endpoint::fromArray($body);
     }
 
-    public function updateEndpoint(string $id, EndpointChanges $changes, ?string $scope = null): Endpoint
+    public function updateEndpoint(string $id, EndpointChanges $changes, ?string $project = null): Endpoint
     {
-        return Endpoint::fromArray($this->body($this->send('PATCH', '/v1/endpoints/'.rawurlencode($id), body: $changes->toArray(), scope: $scope)));
+        return Endpoint::fromArray($this->body($this->send('PATCH', '/v1/endpoints/'.rawurlencode($id), body: $changes->toArray(), project: $project)));
     }
 
-    public function deleteEndpoint(string $id, ?string $scope = null): void
+    public function deleteEndpoint(string $id, ?string $project = null): void
     {
-        $this->send('DELETE', '/v1/endpoints/'.rawurlencode($id), scope: $scope);
+        $this->send('DELETE', '/v1/endpoints/'.rawurlencode($id), project: $project);
     }
 
-    public function pauseEndpoint(string $id, ?string $scope = null): Endpoint
+    public function pauseEndpoint(string $id, ?string $project = null): Endpoint
     {
-        return $this->endpointAction($id, 'pause', $scope);
+        return $this->endpointAction($id, 'pause', $project);
     }
 
-    public function resumeEndpoint(string $id, ?string $scope = null): Endpoint
+    public function resumeEndpoint(string $id, ?string $project = null): Endpoint
     {
-        return $this->endpointAction($id, 'resume', $scope);
+        return $this->endpointAction($id, 'resume', $project);
     }
 
-    public function rotateEndpointSecret(string $id, ?string $scope = null): Endpoint
+    public function rotateEndpointSecret(string $id, ?string $project = null): Endpoint
     {
-        return $this->endpointAction($id, 'rotate-secret', $scope);
+        return $this->endpointAction($id, 'rotate-secret', $project);
     }
 
-    public function pingEndpoint(string $id, ?string $scope = null): PingResult
+    public function pingEndpoint(string $id, ?string $project = null): PingResult
     {
-        return PingResult::fromArray($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/ping', scope: $scope)));
+        return PingResult::fromArray($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/ping', project: $project)));
     }
 
-    public function replayEndpoint(string $id, DateTimeInterface $since, ?DateTimeInterface $until = null, array $types = [], ?string $scope = null): int
+    public function replayEndpoint(string $id, DateTimeInterface $since, ?DateTimeInterface $until = null, array $types = [], ?string $project = null): int
     {
         $body = Payload::compact([
             'since' => Payload::iso($since),
@@ -210,132 +210,132 @@ class HttpRelayTransport implements RelayTransport
             'types' => $types === [] ? null : $types,
         ]);
 
-        return Payload::int($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/replay', body: $body, scope: $scope)), 'queued');
+        return Payload::int($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/replay', body: $body, project: $project)), 'queued');
     }
 
-    public function eraseSubject(string $subject, ?string $scope = null): Erasure
+    public function eraseSubject(string $subject, ?string $project = null): Erasure
     {
-        return Erasure::fromArray($this->body($this->send('POST', '/v1/erasures', body: ['subject' => $subject], scope: $scope)));
+        return Erasure::fromArray($this->body($this->send('POST', '/v1/erasures', body: ['subject' => $subject], project: $project)));
     }
 
-    public function listSources(?string $scope = null): array
+    public function listSources(?string $project = null): array
     {
-        return $this->items($this->send('GET', '/v1/sources', scope: $scope), Source::fromArray(...));
+        return $this->items($this->send('GET', '/v1/sources', project: $project), Source::fromArray(...));
     }
 
-    public function createSource(string $name, SourceScheme $scheme, #[SensitiveParameter] string $secret, ?string $idempotencyKey = null, ?string $scope = null): Source
+    public function createSource(string $name, SourceScheme $scheme, #[SensitiveParameter] string $secret, ?string $idempotencyKey = null, ?string $project = null): Source
     {
         $body = ['name' => $name, 'scheme' => $scheme->value, 'secret' => $secret];
 
-        return Source::fromArray($this->body($this->send('POST', '/v1/sources', body: $body, scope: $scope, idempotencyKey: $idempotencyKey)));
+        return Source::fromArray($this->body($this->send('POST', '/v1/sources', body: $body, project: $project, idempotencyKey: $idempotencyKey)));
     }
 
-    public function findSource(string $id, ?string $scope = null): ?Source
+    public function findSource(string $id, ?string $project = null): ?Source
     {
-        $body = $this->find('/v1/sources/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/sources/'.rawurlencode($id), $project);
 
         return $body === null ? null : Source::fromArray($body);
     }
 
-    public function rotateSourceSecret(string $id, #[SensitiveParameter] string $secret, ?string $scope = null): Source
+    public function rotateSourceSecret(string $id, #[SensitiveParameter] string $secret, ?string $project = null): Source
     {
-        return Source::fromArray($this->body($this->send('PUT', '/v1/sources/'.rawurlencode($id).'/secret', body: ['secret' => $secret], scope: $scope)));
+        return Source::fromArray($this->body($this->send('PUT', '/v1/sources/'.rawurlencode($id).'/secret', body: ['secret' => $secret], project: $project)));
     }
 
-    public function pauseSource(string $id, ?string $scope = null): Source
+    public function pauseSource(string $id, ?string $project = null): Source
     {
-        return Source::fromArray($this->body($this->send('POST', '/v1/sources/'.rawurlencode($id).'/pause', scope: $scope)));
+        return Source::fromArray($this->body($this->send('POST', '/v1/sources/'.rawurlencode($id).'/pause', project: $project)));
     }
 
-    public function resumeSource(string $id, ?string $scope = null): Source
+    public function resumeSource(string $id, ?string $project = null): Source
     {
-        return Source::fromArray($this->body($this->send('POST', '/v1/sources/'.rawurlencode($id).'/resume', scope: $scope)));
+        return Source::fromArray($this->body($this->send('POST', '/v1/sources/'.rawurlencode($id).'/resume', project: $project)));
     }
 
-    public function deleteSource(string $id, ?string $scope = null): void
+    public function deleteSource(string $id, ?string $project = null): void
     {
-        $this->send('DELETE', '/v1/sources/'.rawurlencode($id), scope: $scope);
+        $this->send('DELETE', '/v1/sources/'.rawurlencode($id), project: $project);
     }
 
-    public function judge(JudgeInput $input, ?string $idempotencyKey = null, ?string $scope = null): Judgment
+    public function judge(JudgeInput $input, ?string $idempotencyKey = null, ?string $project = null): Judgment
     {
-        $response = $this->send('POST', '/v1/judge', body: $input->toArray(), scope: $scope, idempotencyKey: $idempotencyKey);
+        $response = $this->send('POST', '/v1/judge', body: $input->toArray(), project: $project, idempotencyKey: $idempotencyKey);
 
         return Judgment::fromArray($this->body($response), created: $response->status() === 201);
     }
 
-    public function findJudgment(string $id, ?string $scope = null): ?Judgment
+    public function findJudgment(string $id, ?string $project = null): ?Judgment
     {
-        $body = $this->find('/v1/judgments/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/judgments/'.rawurlencode($id), $project);
 
         return $body === null ? null : Judgment::fromArray($body);
     }
 
-    public function listInboundRoutes(?string $scope = null): array
+    public function listInboundRoutes(?string $project = null): array
     {
-        return $this->items($this->send('GET', '/v1/inbound/routes', scope: $scope), InboundRoute::fromArray(...));
+        return $this->items($this->send('GET', '/v1/inbound/routes', project: $project), InboundRoute::fromArray(...));
     }
 
-    public function createInboundRoute(InboundRouteType $type, string $domain, ?string $prefix = null, ?string $idempotencyKey = null, ?string $scope = null): InboundRoute
+    public function createInboundRoute(InboundRouteType $type, string $domain, ?string $prefix = null, ?string $idempotencyKey = null, ?string $project = null): InboundRoute
     {
         $body = Payload::compact(['type' => $type->value, 'domain' => $domain, 'prefix' => $prefix]);
 
-        return InboundRoute::fromArray($this->body($this->send('POST', '/v1/inbound/routes', body: $body, scope: $scope, idempotencyKey: $idempotencyKey)));
+        return InboundRoute::fromArray($this->body($this->send('POST', '/v1/inbound/routes', body: $body, project: $project, idempotencyKey: $idempotencyKey)));
     }
 
-    public function verifyInboundRoute(string $id, ?string $scope = null): InboundRoute
+    public function verifyInboundRoute(string $id, ?string $project = null): InboundRoute
     {
-        return InboundRoute::fromArray($this->body($this->send('POST', '/v1/inbound/routes/'.rawurlencode($id).'/verify', scope: $scope)));
+        return InboundRoute::fromArray($this->body($this->send('POST', '/v1/inbound/routes/'.rawurlencode($id).'/verify', project: $project)));
     }
 
-    public function deleteInboundRoute(string $id, ?string $scope = null): void
+    public function deleteInboundRoute(string $id, ?string $project = null): void
     {
-        $this->send('DELETE', '/v1/inbound/routes/'.rawurlencode($id), scope: $scope);
+        $this->send('DELETE', '/v1/inbound/routes/'.rawurlencode($id), project: $project);
     }
 
-    public function listInbound(?int $limit = null, ?string $cursor = null, ?string $scope = null): Page
+    public function listInbound(?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
-        return Page::fromArray($this->body($this->send('GET', '/v1/inbound', $this->paging($limit, $cursor), scope: $scope)), InboundMessage::fromArray(...));
+        return Page::fromArray($this->body($this->send('GET', '/v1/inbound', $this->paging($limit, $cursor), project: $project)), InboundMessage::fromArray(...));
     }
 
-    public function findInbound(string $id, ?string $scope = null): ?InboundMessage
+    public function findInbound(string $id, ?string $project = null): ?InboundMessage
     {
-        $body = $this->find('/v1/inbound/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/inbound/'.rawurlencode($id), $project);
 
         return $body === null ? null : InboundMessage::fromArray($body);
     }
 
-    public function deleteInbound(string $id, ?string $idempotencyKey = null, ?string $scope = null): void
+    public function deleteInbound(string $id, ?string $idempotencyKey = null, ?string $project = null): void
     {
-        $this->send('DELETE', '/v1/inbound/'.rawurlencode($id), scope: $scope, idempotencyKey: $idempotencyKey);
+        $this->send('DELETE', '/v1/inbound/'.rawurlencode($id), project: $project, idempotencyKey: $idempotencyKey);
     }
 
-    public function pushKey(?string $scope = null): string
+    public function pushKey(?string $project = null): string
     {
-        return Payload::string($this->body($this->send('GET', '/v1/push/key', scope: $scope)), 'public_key');
+        return Payload::string($this->body($this->send('GET', '/v1/push/key', project: $project)), 'public_key');
     }
 
-    public function listPushSubscriptions(?string $ref = null, ?string $scope = null): array
+    public function listPushSubscriptions(?string $ref = null, ?string $project = null): array
     {
         $query = $ref === null || $ref === '' ? [] : ['ref' => $ref];
 
-        return $this->items($this->send('GET', '/v1/push/subscriptions', $query, scope: $scope), static fn (array $item): PushSubscription => PushSubscription::fromArray($item));
+        return $this->items($this->send('GET', '/v1/push/subscriptions', $query, project: $project), static fn (array $item): PushSubscription => PushSubscription::fromArray($item));
     }
 
-    public function createPushSubscription(BrowserSubscription $subscription, ?string $ref = null, ?string $idempotencyKey = null, ?string $scope = null): PushSubscription
+    public function createPushSubscription(BrowserSubscription $subscription, ?string $ref = null, ?string $idempotencyKey = null, ?string $project = null): PushSubscription
     {
         $body = [...$subscription->toArray(), ...Payload::compact(['ref' => $ref])];
-        $response = $this->send('POST', '/v1/push/subscriptions', body: $body, scope: $scope, idempotencyKey: $idempotencyKey);
+        $response = $this->send('POST', '/v1/push/subscriptions', body: $body, project: $project, idempotencyKey: $idempotencyKey);
 
         return PushSubscription::fromArray($this->body($response), created: $response->status() === 201);
     }
 
-    public function deletePushSubscription(string $id, ?string $scope = null): void
+    public function deletePushSubscription(string $id, ?string $project = null): void
     {
-        $this->send('DELETE', '/v1/push/subscriptions/'.rawurlencode($id), scope: $scope);
+        $this->send('DELETE', '/v1/push/subscriptions/'.rawurlencode($id), project: $project);
     }
 
-    public function sendPush(string $subscription, string|array $payload, ?int $ttl = null, ?PushUrgency $urgency = null, ?string $topic = null, ?string $idempotencyKey = null, ?string $scope = null): PushMessage
+    public function sendPush(string $subscription, string|array $payload, ?int $ttl = null, ?PushUrgency $urgency = null, ?string $topic = null, ?string $idempotencyKey = null, ?string $project = null): PushMessage
     {
         $body = Payload::compact([
             'subscription' => $subscription,
@@ -346,91 +346,91 @@ class HttpRelayTransport implements RelayTransport
             'topic' => $topic,
         ]);
 
-        return PushMessage::fromArray($this->body($this->send('POST', '/v1/push', body: $body, scope: $scope, idempotencyKey: $idempotencyKey)));
+        return PushMessage::fromArray($this->body($this->send('POST', '/v1/push', body: $body, project: $project, idempotencyKey: $idempotencyKey)));
     }
 
-    public function findPush(string $id, ?string $scope = null): ?PushMessage
+    public function findPush(string $id, ?string $project = null): ?PushMessage
     {
-        $body = $this->find('/v1/push/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/push/'.rawurlencode($id), $project);
 
         return $body === null ? null : PushMessage::fromArray($body);
     }
 
-    public function listDomains(?string $scope = null): array
+    public function listDomains(?string $project = null): array
     {
-        return $this->items($this->send('GET', '/v1/domains', scope: $scope), SendingDomain::fromArray(...));
+        return $this->items($this->send('GET', '/v1/domains', project: $project), SendingDomain::fromArray(...));
     }
 
-    public function createDomain(string $domain, ?string $idempotencyKey = null, ?string $scope = null): SendingDomain
+    public function createDomain(string $domain, ?string $idempotencyKey = null, ?string $project = null): SendingDomain
     {
-        return SendingDomain::fromArray($this->body($this->send('POST', '/v1/domains', body: ['domain' => $domain], scope: $scope, idempotencyKey: $idempotencyKey)));
+        return SendingDomain::fromArray($this->body($this->send('POST', '/v1/domains', body: ['domain' => $domain], project: $project, idempotencyKey: $idempotencyKey)));
     }
 
-    public function findDomain(string $id, ?string $scope = null): ?SendingDomain
+    public function findDomain(string $id, ?string $project = null): ?SendingDomain
     {
-        $body = $this->find('/v1/domains/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/domains/'.rawurlencode($id), $project);
 
         return $body === null ? null : SendingDomain::fromArray($body);
     }
 
-    public function verifyDomain(string $id, ?string $scope = null): SendingDomain
+    public function verifyDomain(string $id, ?string $project = null): SendingDomain
     {
-        return SendingDomain::fromArray($this->body($this->send('POST', '/v1/domains/'.rawurlencode($id).'/verify', scope: $scope)));
+        return SendingDomain::fromArray($this->body($this->send('POST', '/v1/domains/'.rawurlencode($id).'/verify', project: $project)));
     }
 
-    public function domainReputation(string $id, ?string $scope = null): DomainReputation
+    public function domainReputation(string $id, ?string $project = null): DomainReputation
     {
-        return DomainReputation::fromArray($this->body($this->send('GET', '/v1/domains/'.rawurlencode($id).'/reputation', scope: $scope)));
+        return DomainReputation::fromArray($this->body($this->send('GET', '/v1/domains/'.rawurlencode($id).'/reputation', project: $project)));
     }
 
-    public function deleteDomain(string $id, ?string $scope = null): void
+    public function deleteDomain(string $id, ?string $project = null): void
     {
-        $this->send('DELETE', '/v1/domains/'.rawurlencode($id), scope: $scope);
+        $this->send('DELETE', '/v1/domains/'.rawurlencode($id), project: $project);
     }
 
-    public function listSuppressions(?int $limit = null, ?string $cursor = null, ?string $scope = null): Page
+    public function listSuppressions(?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
-        return Page::fromArray($this->body($this->send('GET', '/v1/suppressions', $this->paging($limit, $cursor), scope: $scope)), static fn (array $item): Suppression => Suppression::fromArray($item));
+        return Page::fromArray($this->body($this->send('GET', '/v1/suppressions', $this->paging($limit, $cursor), project: $project)), static fn (array $item): Suppression => Suppression::fromArray($item));
     }
 
-    public function createSuppression(string $address, ?SuppressionReason $reason = null, ?string $idempotencyKey = null, ?string $scope = null): Suppression
+    public function createSuppression(string $address, ?SuppressionReason $reason = null, ?string $idempotencyKey = null, ?string $project = null): Suppression
     {
         $body = Payload::compact(['address' => $address, 'reason' => $reason?->value]);
-        $response = $this->send('POST', '/v1/suppressions', body: $body, scope: $scope, idempotencyKey: $idempotencyKey);
+        $response = $this->send('POST', '/v1/suppressions', body: $body, project: $project, idempotencyKey: $idempotencyKey);
 
         return Suppression::fromArray($this->body($response), created: $response->status() === 201);
     }
 
-    public function deleteSuppression(string $address, ?string $scope = null): void
+    public function deleteSuppression(string $address, ?string $project = null): void
     {
-        $this->send('DELETE', '/v1/suppressions/'.rawurlencode($address), scope: $scope);
+        $this->send('DELETE', '/v1/suppressions/'.rawurlencode($address), project: $project);
     }
 
-    public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null, ?string $scope = null): Mail
+    public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null, ?string $project = null): Mail
     {
-        return Mail::fromArray($this->body($this->send('POST', '/v1/mail', body: $mail->toArray(), scope: $scope, idempotencyKey: $idempotencyKey)));
+        return Mail::fromArray($this->body($this->send('POST', '/v1/mail', body: $mail->toArray(), project: $project, idempotencyKey: $idempotencyKey)));
     }
 
-    public function findMail(string $id, ?string $scope = null): ?Mail
+    public function findMail(string $id, ?string $project = null): ?Mail
     {
-        $body = $this->find('/v1/mail/'.rawurlencode($id), $scope);
+        $body = $this->find('/v1/mail/'.rawurlencode($id), $project);
 
         return $body === null ? null : Mail::fromArray($body);
     }
 
-    public function releaseMail(string $id, ?string $scope = null): Mail
+    public function releaseMail(string $id, ?string $project = null): Mail
     {
-        return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/release', scope: $scope)));
+        return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/release', project: $project)));
     }
 
-    public function discardMail(string $id, ?string $scope = null): Mail
+    public function discardMail(string $id, ?string $project = null): Mail
     {
-        return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/discard', scope: $scope)));
+        return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/discard', project: $project)));
     }
 
-    private function endpointAction(string $id, string $action, ?string $scope): Endpoint
+    private function endpointAction(string $id, string $action, ?string $project): Endpoint
     {
-        return Endpoint::fromArray($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/'.$action, scope: $scope)));
+        return Endpoint::fromArray($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/'.$action, project: $project)));
     }
 
     /**
@@ -438,13 +438,13 @@ class HttpRelayTransport implements RelayTransport
      *
      * @return array<array-key, mixed>|null
      */
-    private function find(string $path, ?string $scope): ?array
+    private function find(string $path, ?string $project): ?array
     {
         try {
-            return $this->body($this->send('GET', $path, scope: $scope));
+            return $this->body($this->send('GET', $path, project: $project));
         } catch (RelayNotFound $e) {
-            // The scope named in Relay-Scope is what is missing, not the thing asked for.
-            if (str_ends_with($e->problem->type ?? '', 'scope_not_found')) {
+            // The project named in Relay-Project is what is missing, not the thing asked for.
+            if (str_ends_with($e->problem->type ?? '', 'project_not_found')) {
                 throw $e;
             }
 
@@ -469,7 +469,7 @@ class HttpRelayTransport implements RelayTransport
      * @param  array<string, string>  $query
      * @param  array<string, mixed>|null  $body  null sends no body at all
      */
-    private function send(string $method, string $path, array $query = [], ?array $body = null, ?string $scope = null, ?string $idempotencyKey = null): Response
+    private function send(string $method, string $path, array $query = [], ?array $body = null, ?string $project = null, ?string $idempotencyKey = null): Response
     {
         if (! $this->config->configured()) {
             throw new RelayNotConfigured;
@@ -482,8 +482,8 @@ class HttpRelayTransport implements RelayTransport
             ->connectTimeout($this->config->connectTimeout())
             ->timeout($this->config->timeout());
 
-        if ($scope !== null && $scope !== '') {
-            $request->withHeader('Relay-Scope', $scope);
+        if ($project !== null && $project !== '') {
+            $request->withHeader('Relay-Project', $project);
         }
 
         if ($idempotencyKey !== null && $idempotencyKey !== '') {

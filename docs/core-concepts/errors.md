@@ -14,7 +14,7 @@ an exception; all of them extend `Cbox\Relay\Client\Exceptions\RelayException`.
 |--------|-----------|---------|
 | 401 | `RelayUnauthorized` | bad or revoked key |
 | 403 | `RelayForbidden` | the key lacks an ability |
-| 404 | `RelayNotFound` | every `find()`, `judgment()`, `mail()` and `pushMessage()` returns `null` instead; a missing *scope* (type `scope_not_found`) is still thrown |
+| 404 | `RelayNotFound` | every `find()`, `judgment()`, `mail()` and `pushMessage()` returns `null` instead; a missing *project* (type `project_not_found`) is still thrown |
 | 409 | `RelayConflict` | `->type()` says which: `idempotency_key_reused`, `idempotency_in_progress` or `mail_not_held` |
 | 413 | `RelayTooLarge` | the body is too large (an event payload may be 256 KB) |
 | 422 | `RelayInvalid` | `->errors` (`array<string, list<string>>`), `->errorsFor($field)` |
@@ -23,14 +23,14 @@ an exception; all of them extend `Cbox\Relay\Client\Exceptions\RelayException`.
 | any other status | `RelayException` | |
 | no `RELAY_URL` or `RELAY_KEY` | `RelayNotConfigured` | nothing was sent |
 | a 2xx body the client cannot read | `RelayMalformedResponse` | |
-| a scoped call with no scope set, or 422 with the type `scope_required` | `RelayScopeRequired` | from the manager nothing was sent; see [Authentication](authentication.md#calls-that-need-a-scope) |
+| a scoped call with no project set, or 422 with the type `project_required` | `RelayProjectRequired` | from the manager nothing was sent; see [Authentication](authentication.md#calls-that-need-a-project) |
 | an incoming webhook that does not verify | `RelayWebhookRejected` | `->reason`; see [Webhooks from Relay](incoming-webhooks.md) |
 
 ```php
 use Cbox\Relay\Client\Exceptions\{RelayException, RelayInvalid, RelayRateLimited, RelayUnavailable};
 
 try {
-    Relay::scopes()->put($workspace->id, name: $workspace->name);
+    Relay::projects()->put($workspace->id, name: $workspace->name);
 } catch (RelayInvalid $e) {
     $e->errorsFor('name');
 } catch (RelayRateLimited $e) {
@@ -56,18 +56,18 @@ contains the key.
 ## Branching on the type
 
 Relay's `type` is stable and safe to branch on. `$e->type()` gives its name, the last
-part of `$e->problem->type`: `missing_ability`, `scope_suspended`,
+part of `$e->problem->type`: `missing_ability`, `project_suspended`,
 `idempotency_in_progress`, `mail_not_held`. It is `null` when there was no problem
 document.
 
 ```php
-if ($e->type() === 'scope_suspended') { … }
+if ($e->type() === 'project_suspended') { … }
 ```
 
 ## Retrying
 
 One call is one request; the client does not retry it. `RelayUnavailable` and
-`RelayRateLimited` are the two that may succeed later. A scope `put` is safe to repeat,
+`RelayRateLimited` are the two that may succeed later. A project `put` is safe to repeat,
 and so is any write sent with an idempotency key.
 
 The exception is `Relay::publish()`: its queued job retries on its own. See

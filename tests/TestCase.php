@@ -31,6 +31,6 @@ abstract class TestCase extends Orchestra
 
         $config->set('relay.url', 'https://relay.test');
         $config->set('relay.key', 'rlk_test_0123456789abcdefghijABCDEFGHIJ0123456789');
-        $config->set('relay.scope', null);
+        $config->set('relay.project', null);
     }
 }

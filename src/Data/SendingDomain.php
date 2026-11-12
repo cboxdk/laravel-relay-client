@@ -7,7 +7,7 @@ namespace Cbox\Relay\Client\Data;
 use DateTimeImmutable;
 
 /**
- * A domain a scope sends mail from, with the DNS records to publish. It can send once
+ * A domain a project sends mail from, with the DNS records to publish. It can send once
  * `$status` is `verified`; a verified domain whose DKIM record has gone becomes `failed`.
  */
 readonly class SendingDomain

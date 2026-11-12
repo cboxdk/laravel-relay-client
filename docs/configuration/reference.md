@@ -22,14 +22,14 @@ php artisan vendor:publish --tag=relay-config   # config/relay.php
 With `url` or `key` empty every call throws `RelayNotConfigured` and nothing is sent.
 A timeout that is not a positive number falls back to its default.
 
-## Scope
+## Project
 
 | Key | Env | Default | What it is |
 |-----|-----|---------|------------|
-| `relay.scope` | `RELAY_SCOPE` | none | The scope every call acts for unless `forScope()` says otherwise. |
-| `relay.scope_key` | `RELAY_SCOPE_KEY` | `false` | `true` when the key is a scope key: scoped calls go out without `Relay-Scope` and `RelayScopeRequired` is never thrown. |
+| `relay.project` | `RELAY_PROJECT` | none | The project every call acts for unless `forProject()` says otherwise. |
+| `relay.project_key` | `RELAY_PROJECT_KEY` | `false` | `true` when the key is a project key: scoped calls go out without `Relay-Project` and `RelayProjectRequired` is never thrown. |
 
-See [Authentication](../core-concepts/authentication.md#calls-that-need-a-scope).
+See [Authentication](../core-concepts/authentication.md#calls-that-need-a-project).
 
 ## Publishing
 
@@ -61,6 +61,6 @@ The `relay` mail transport is configured in `config/mail.php`, not here:
 | Key | What it is |
 |-----|------------|
 | `mail.mailers.<name>.transport` | `relay` |
-| `mail.mailers.<name>.scope` | Optional: the scope this mailer sends for, ahead of `relay.scope`. |
+| `mail.mailers.<name>.project` | Optional: the project this mailer sends for, ahead of `relay.project`. |
 
 See [Outbound mail](../core-concepts/outbound-mail.md#the-mail-transport).

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Cbox\Relay\Client;
 
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 
 /**
- * The scope a client acts for, and whether a call that needs one may go out without.
- * `$lockedByKey` says the API key is a scope key: Relay already knows its scope, so no
- * `Relay-Scope` is needed and none is demanded.
+ * The project a client acts for, and whether a call that needs one may go out without.
+ * `$lockedByKey` says the API key is a project key: Relay already knows its project, so no
+ * `Relay-Project` is needed and none is demanded.
  */
-readonly class ActingScope
+readonly class ActingProject
 {
     public ?string $ref;
 
@@ -21,14 +21,14 @@ readonly class ActingScope
     }
 
     /**
-     * The scope for a call that only makes sense for one scope.
+     * The project for a call that only makes sense for one project.
      *
-     * @throws RelayScopeRequired when none is named and the key is not locked to one
+     * @throws RelayProjectRequired when none is named and the key is not locked to one
      */
     public function required(): ?string
     {
         if ($this->ref === null && ! $this->lockedByKey) {
-            throw new RelayScopeRequired;
+            throw new RelayProjectRequired;
         }
 
         return $this->ref;

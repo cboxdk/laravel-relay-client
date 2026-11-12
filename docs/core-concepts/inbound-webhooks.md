@@ -1,6 +1,6 @@
 ---
 title: Inbound webhooks
-description: Let Relay take a provider's webhooks for a scope: create a source, give its URL to the provider, and receive each event from Relay on your own endpoint.
+description: Let Relay take a provider's webhooks for a project: create a source, give its URL to the provider, and receive each event from Relay on your own endpoint.
 weight: 33
 ---
 
@@ -8,7 +8,7 @@ weight: 33
 
 Point a provider (Stripe, GitHub, another Cbox product) at Relay instead of at your
 app. Relay verifies each call with the provider's own scheme and secret, drops the
-provider's repeats, and forwards each new event to the scope's endpoints like any other
+provider's repeats, and forwards each new event to the project's endpoints like any other
 event: retried, logged, replayable. Your app does not have to be up when the provider
 calls.
 
@@ -17,7 +17,7 @@ calls.
 ```php
 use Cbox\Relay\Client\Data\SourceScheme;
 
-$sources = Relay::forScope($ref)->sources();
+$sources = Relay::forProject($ref)->sources();
 
 $source = $sources->register('stripe', SourceScheme::Stripe, $secretTheProviderShowedYou);
 
@@ -49,7 +49,7 @@ Needs `sources:manage`.
 Subscribe an endpoint of your own to the source's event type:
 
 ```php
-Relay::forScope($ref)->endpoints()->register('https://app.example/hooks/relay', ['inbound.stripe']);
+Relay::forProject($ref)->endpoints()->register('https://app.example/hooks/relay', ['inbound.stripe']);
 ```
 
 It arrives signed by Relay, not by the provider, so the
@@ -76,7 +76,7 @@ service's side; see Relay's own documentation.
 ## In a test
 
 ```php
-$relay = Relay::fake()->acceptAnyScope();
+$relay = Relay::fake()->acceptAnyProject();
 
 $this->post('/integrations/stripe', ['secret' => 'whsec_…']);
 

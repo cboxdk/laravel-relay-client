@@ -7,7 +7,7 @@ namespace Cbox\Relay\Client\Data;
 use DateTimeImmutable;
 
 /**
- * An address a scope never sends to. `$source` is the mail that caused it, when one did.
+ * An address a project never sends to. `$source` is the mail that caused it, when one did.
  * `$created` is true only on the answer that added it (Relay answered 201); an address
  * that was listed already keeps its first reason.
  */

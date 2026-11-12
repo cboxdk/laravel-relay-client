@@ -23,7 +23,7 @@ use Cbox\Relay\Client\Data\Published;
 use Cbox\Relay\Client\Data\PushMessage;
 use Cbox\Relay\Client\Data\PushUrgency;
 use Cbox\Relay\Client\Data\TemplateReference;
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Jobs\PublishEvent;
 use Cbox\Relay\Client\Publishing\ImmediateEventPublisher;
 use DateTimeInterface;
@@ -31,30 +31,30 @@ use Illuminate\Support\Carbon;
 
 /**
  * The Cbox Relay client: a thin, typed front for the {@see RelayTransport} contract.
- * An instance is immutable; `forScope()` and `withoutScope()` return a new one.
+ * An instance is immutable; `forProject()` and `withoutProject()` return a new one.
  *
- * Most of Relay acts for one scope. Those calls throw {@see RelayScopeRequired} before
- * anything is sent when no scope is named (`forScope()` or `relay.scope`), unless the
- * key is a scope key (`relay.scope_key`). `whoami()`, `scopes()`, `deliveries()` and
+ * Most of Relay acts for one project. Those calls throw {@see RelayProjectRequired} before
+ * anything is sent when no project is named (`forProject()` or `relay.project`), unless the
+ * key is a project key (`relay.project_key`). `whoami()`, `projects()`, `deliveries()` and
  * `inbound()` work without one.
  */
 class Relay
 {
-    private ActingScope $acting;
+    private ActingProject $acting;
 
     private readonly EventPublisher $publisher;
 
     /**
      * @param  EventPublisher|null  $publisher  how `publish()` hands events over; null publishes at once through the transport
-     * @param  bool  $scopeKey  the API key is a scope key, so calls that need a scope go out without `Relay-Scope`
+     * @param  bool  $projectKey  the API key is a project key, so calls that need a project go out without `Relay-Project`
      */
     public function __construct(
         private readonly RelayTransport $transport,
-        ?string $scope = null,
+        ?string $project = null,
         ?EventPublisher $publisher = null,
-        bool $scopeKey = false,
+        bool $projectKey = false,
     ) {
-        $this->acting = new ActingScope($scope, $scopeKey);
+        $this->acting = new ActingProject($project, $projectKey);
         $this->publisher = $publisher ?? new ImmediateEventPublisher($transport);
     }
 
@@ -64,9 +64,9 @@ class Relay
         return $this->transport->whoami($this->acting->ref);
     }
 
-    public function scopes(): Scopes
+    public function projects(): Projects
     {
-        return new Scopes($this->transport, $this->acting->ref);
+        return new Projects($this->transport, $this->acting->ref);
     }
 
     /**
@@ -97,7 +97,7 @@ class Relay
     }
 
     /**
-     * Publish an event to the scope's webhook endpoints, without waiting for Relay: by
+     * Publish an event to the project's webhook endpoints, without waiting for Relay: by
      * default a queued job makes the call after the surrounding database transaction
      * commits, and retries it. With `relay.publish.sync`, and under `Relay::fake()`, the
      * call is made before this returns.
@@ -144,7 +144,7 @@ class Relay
     }
 
     /**
-     * Forget one person inside the scope: remove the events that were published with
+     * Forget one person inside the project: remove the events that were published with
      * this `$subject`, and their deliveries and attempts. Events published without a
      * subject are not found. Safe to repeat: the second call removes nothing.
      */
@@ -206,7 +206,7 @@ class Relay
 
     // Web Push
 
-    /** The scope's VAPID public key: give it to the browser as `applicationServerKey`. */
+    /** The project's VAPID public key: give it to the browser as `applicationServerKey`. */
     public function pushKey(): string
     {
         return $this->transport->pushKey($this->acting->required());
@@ -283,14 +283,14 @@ class Relay
         return $this->transport->discardMail($id, $this->acting->required());
     }
 
-    // Scope
+    // Project
 
     /**
-     * A client whose every call acts for that scope (its external ref or `scp_…` id) by
-     * sending `Relay-Scope`. For organization keys; a scope key is already locked to its
-     * scope and Relay refuses it naming another.
+     * A client whose every call acts for that project (its external ref or `prj_…` id) by
+     * sending `Relay-Project`. For organization keys; a project key is already locked to its
+     * project and Relay refuses it naming another.
      */
-    public function forScope(string $ref): static
+    public function forProject(string $ref): static
     {
         $relay = clone $this;
         $relay->acting = $this->acting->with($ref);
@@ -298,8 +298,8 @@ class Relay
         return $relay;
     }
 
-    /** A client that acts as the key itself, whatever `relay.scope` says. */
-    public function withoutScope(): static
+    /** A client that acts as the key itself, whatever `relay.project` says. */
+    public function withoutProject(): static
     {
         $relay = clone $this;
         $relay->acting = $this->acting->with(null);
@@ -307,8 +307,8 @@ class Relay
         return $relay;
     }
 
-    /** The scope this client acts for; null when it acts as the key itself. */
-    public function scope(): ?string
+    /** The project this client acts for; null when it acts as the key itself. */
+    public function project(): ?string
     {
         return $this->acting->ref;
     }

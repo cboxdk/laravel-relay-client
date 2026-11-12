@@ -19,6 +19,6 @@ use Cbox\Relay\Client\Relay;
  */
 interface EventPublisher
 {
-    /** `$scope` is what goes out as `Relay-Scope`; null with a scope key. */
-    public function publish(NewEvent $event, ?string $scope = null): void;
+    /** `$project` is what goes out as `Relay-Project`; null with a project key. */
+    public function publish(NewEvent $event, ?string $project = null): void;
 }

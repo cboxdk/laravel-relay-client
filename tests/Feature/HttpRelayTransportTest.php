@@ -31,9 +31,9 @@ function transport(): RelayTransport
 /**
  * @return array<string, mixed>
  */
-function scopeBody(string $ref = 'ws_1', string $name = 'Acme'): array
+function projectBody(string $ref = 'ws_1', string $name = 'Acme'): array
 {
-    return ['id' => 'scp_1', 'external_ref' => $ref, 'name' => $name, 'settings' => [], 'suspended_at' => null, 'created_at' => '2026-11-12T10:00:00+00:00'];
+    return ['id' => 'prj_1', 'external_ref' => $ref, 'name' => $name, 'settings' => [], 'suspended_at' => null, 'created_at' => '2026-11-12T10:00:00+00:00'];
 }
 
 /**
@@ -50,12 +50,12 @@ it('is the bound transport', function (): void {
     expect(transport())->toBeInstanceOf(HttpRelayTransport::class);
 });
 
-it('reads whoami with the bearer key and no scope header', function (): void {
+it('reads whoami with the bearer key and no project header', function (): void {
     Http::fake(['relay.test/v1/whoami' => Http::response([
         'organization' => ['id' => 'org_1', 'name' => 'Cbox'],
         'environment' => 'live',
-        'scope' => null,
-        'key' => ['id' => 'key_1', 'name' => 'Billing', 'prefix' => 'rlk_live_ab12', 'abilities' => ['scopes:manage', 'deliveries:read']],
+        'project' => null,
+        'key' => ['id' => 'key_1', 'name' => 'Billing', 'prefix' => 'rlk_live_ab12', 'abilities' => ['projects:manage', 'deliveries:read']],
     ])]);
 
     $identity = transport()->whoami();
@@ -64,73 +64,73 @@ it('reads whoami with the bearer key and no scope header', function (): void {
         ->and($identity->organization->name)->toBe('Cbox')
         ->and($identity->environment)->toBe(Environment::Live)
         ->and($identity->live())->toBeTrue()
-        ->and($identity->scope)->toBeNull()
+        ->and($identity->project)->toBeNull()
         ->and($identity->scoped())->toBeFalse()
         ->and($identity->key->id)->toBe('key_1')
         ->and($identity->key->prefix)->toBe('rlk_live_ab12')
-        ->and($identity->can('scopes:manage'))->toBeTrue()
+        ->and($identity->can('projects:manage'))->toBeTrue()
         ->and($identity->can('messages:send'))->toBeFalse();
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
         && $request->url() === 'https://relay.test/v1/whoami'
         && $request->hasHeader('Authorization', 'Bearer '.KEY)
         && $request->hasHeader('Accept', 'application/json')
-        && ! $request->hasHeader('Relay-Scope')
+        && ! $request->hasHeader('Relay-Project')
         && ! $request->hasHeader('Idempotency-Key'));
 });
 
-it('sends Relay-Scope when acting for a scope and maps the scope whoami names', function (): void {
+it('sends Relay-Project when acting for a project and maps the project whoami names', function (): void {
     Http::fake(['relay.test/v1/whoami' => Http::response([
         'organization' => ['id' => 'org_1', 'name' => 'Cbox'],
         'environment' => 'test',
-        'scope' => ['id' => 'scp_1', 'external_ref' => 'ws_1', 'name' => 'Acme'],
+        'project' => ['id' => 'prj_1', 'external_ref' => 'ws_1', 'name' => 'Acme'],
         'key' => ['id' => 'key_1', 'name' => 'Billing', 'prefix' => 'rlk_test_ab12', 'abilities' => []],
     ])]);
 
     $identity = transport()->whoami('ws_1');
 
     expect($identity->scoped())->toBeTrue()
-        ->and($identity->scope?->id)->toBe('scp_1')
-        ->and($identity->scope?->externalRef)->toBe('ws_1')
+        ->and($identity->project?->id)->toBe('prj_1')
+        ->and($identity->project?->externalRef)->toBe('ws_1')
         ->and($identity->environment)->toBe(Environment::Test);
 
-    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Relay-Scope', 'ws_1'));
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Relay-Project', 'ws_1'));
 });
 
-it('puts a scope and knows it was created from the 201', function (): void {
-    Http::fake(['relay.test/v1/scopes/ws_1' => Http::response(['id' => 'scp_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'settings' => ['region' => 'eu'], 'suspended_at' => null, 'created_at' => '2026-11-12T10:00:00+00:00'], 201)]);
+it('puts a project and knows it was created from the 201', function (): void {
+    Http::fake(['relay.test/v1/projects/ws_1' => Http::response(['id' => 'prj_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'settings' => ['region' => 'eu'], 'suspended_at' => null, 'created_at' => '2026-11-12T10:00:00+00:00'], 201)]);
 
-    $scope = transport()->putScope('ws_1', 'Acme', ['region' => 'eu'], 'put-ws_1');
+    $project = transport()->putProject('ws_1', 'Acme', ['region' => 'eu'], 'put-ws_1');
 
-    expect($scope->id)->toBe('scp_1')
-        ->and($scope->externalRef)->toBe('ws_1')
-        ->and($scope->name)->toBe('Acme')
-        ->and($scope->settings)->toBe(['region' => 'eu'])
-        ->and($scope->suspended())->toBeFalse()
-        ->and($scope->createdAt->format(DATE_ATOM))->toBe('2026-11-12T10:00:00+00:00')
-        ->and($scope->created)->toBeTrue();
+    expect($project->id)->toBe('prj_1')
+        ->and($project->externalRef)->toBe('ws_1')
+        ->and($project->name)->toBe('Acme')
+        ->and($project->settings)->toBe(['region' => 'eu'])
+        ->and($project->suspended())->toBeFalse()
+        ->and($project->createdAt->format(DATE_ATOM))->toBe('2026-11-12T10:00:00+00:00')
+        ->and($project->created)->toBeTrue();
 
     Http::assertSent(fn (Request $request): bool => $request->method() === 'PUT'
-        && $request->url() === 'https://relay.test/v1/scopes/ws_1'
+        && $request->url() === 'https://relay.test/v1/projects/ws_1'
         && $request->hasHeader('Content-Type', 'application/json')
         && $request->hasHeader('Idempotency-Key', 'put-ws_1')
         && $request->data() === ['name' => 'Acme', 'settings' => ['region' => 'eu']]);
 });
 
-it('knows a put scope existed from the 200', function (): void {
-    Http::fake(['relay.test/v1/scopes/ws_1' => Http::response([...scopeBody(), 'suspended_at' => '2026-11-12T11:00:00Z'], 200)]);
+it('knows a put project existed from the 200', function (): void {
+    Http::fake(['relay.test/v1/projects/ws_1' => Http::response([...projectBody(), 'suspended_at' => '2026-11-12T11:00:00Z'], 200)]);
 
-    $scope = transport()->putScope('ws_1');
+    $project = transport()->putProject('ws_1');
 
-    expect($scope->created)->toBeFalse()
-        ->and($scope->suspended())->toBeTrue();
+    expect($project->created)->toBeFalse()
+        ->and($project->suspended())->toBeTrue();
 });
 
 it('sends an empty JSON object when a put carries nothing, and empty settings as an object', function (): void {
-    Http::fake(['relay.test/v1/scopes/*' => Http::response(scopeBody())]);
+    Http::fake(['relay.test/v1/projects/*' => Http::response(projectBody())]);
 
-    transport()->putScope('ws_1');
-    transport()->putScope('ws_1', settings: []);
+    transport()->putProject('ws_1');
+    transport()->putProject('ws_1', settings: []);
 
     $bodies = Http::recorded()->map(fn (array $pair): string => $pair[0]->body())->all();
 
@@ -138,52 +138,52 @@ it('sends an empty JSON object when a put carries nothing, and empty settings as
 });
 
 it('encodes the external ref in the path', function (): void {
-    Http::fake(['relay.test/v1/scopes/*' => Http::response(scopeBody('team/7 a'))]);
+    Http::fake(['relay.test/v1/projects/*' => Http::response(projectBody('team/7 a'))]);
 
-    transport()->putScope('team/7 a');
-    transport()->findScope('team/7 a');
+    transport()->putProject('team/7 a');
+    transport()->findProject('team/7 a');
 
     Http::assertSentCount(2);
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/scopes/team%2F7%20a');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/projects/team%2F7%20a');
 });
 
-it('finds a scope, and answers null for a 404', function (): void {
+it('finds a project, and answers null for a 404', function (): void {
     Http::fake([
-        'relay.test/v1/scopes/ws_1' => Http::response(scopeBody()),
-        'relay.test/v1/scopes/nope' => Http::response(problem(404, 'Not Found'), 404, ['Content-Type' => 'application/problem+json']),
+        'relay.test/v1/projects/ws_1' => Http::response(projectBody()),
+        'relay.test/v1/projects/nope' => Http::response(problem(404, 'Not Found'), 404, ['Content-Type' => 'application/problem+json']),
     ]);
 
-    expect(transport()->findScope('ws_1')?->id)->toBe('scp_1')
-        ->and(transport()->findScope('ws_1')?->created)->toBeFalse()
-        ->and(transport()->findScope('nope'))->toBeNull();
+    expect(transport()->findProject('ws_1')?->id)->toBe('prj_1')
+        ->and(transport()->findProject('ws_1')?->created)->toBeFalse()
+        ->and(transport()->findProject('nope'))->toBeNull();
 });
 
-it('lists scopes with limit and cursor', function (): void {
-    Http::fake(['relay.test/v1/scopes*' => Http::response(['data' => [scopeBody('ws_1'), scopeBody('ws_2', 'Globex')], 'next_cursor' => 'c2'])]);
+it('lists projects with limit and cursor', function (): void {
+    Http::fake(['relay.test/v1/projects*' => Http::response(['data' => [projectBody('ws_1'), projectBody('ws_2', 'Globex')], 'next_cursor' => 'c2'])]);
 
-    $page = transport()->listScopes(2, 'c1');
+    $page = transport()->listProjects(2, 'c1');
 
     expect($page)->toHaveCount(2)
         ->and($page->items[1]->externalRef)->toBe('ws_2')
         ->and($page->nextCursor)->toBe('c2')
         ->and($page->hasMore())->toBeTrue();
 
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/scopes?limit=2&cursor=c1');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/projects?limit=2&cursor=c1');
 });
 
-it('lists scopes without a query string when nothing is asked', function (): void {
-    Http::fake(['relay.test/v1/scopes' => Http::response(['data' => [], 'next_cursor' => null])]);
+it('lists projects without a query string when nothing is asked', function (): void {
+    Http::fake(['relay.test/v1/projects' => Http::response(['data' => [], 'next_cursor' => null])]);
 
-    $page = transport()->listScopes();
+    $page = transport()->listProjects();
 
     expect($page->isEmpty())->toBeTrue()->and($page->hasMore())->toBeFalse();
 
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/scopes');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/projects');
 });
 
 it('reads the delivery log with the filter as query parameters', function (): void {
     Http::fake(['relay.test/v1/deliveries*' => Http::response(['data' => [[
-        'id' => 'dlv_1', 'scope_id' => 'scp_1', 'channel' => 'webhook', 'subject_type' => 'event', 'subject_id' => 'evt_1',
+        'id' => 'dlv_1', 'project_id' => 'prj_1', 'channel' => 'webhook', 'subject_type' => 'event', 'subject_id' => 'evt_1',
         'target' => 'https://example.test/hooks', 'status' => 'delivered', 'attempt' => 2, 'response_code' => 200, 'error' => null,
         'duration_ms' => 12, 'occurred_at' => '2026-11-12T10:00:00Z',
     ]], 'next_cursor' => null])]);
@@ -198,7 +198,7 @@ it('reads the delivery log with the filter as query parameters', function (): vo
     $delivery = $page->items[0];
 
     expect($delivery->id)->toBe('dlv_1')
-        ->and($delivery->scopeId)->toBe('scp_1')
+        ->and($delivery->projectId)->toBe('prj_1')
         ->and($delivery->channel)->toBe('webhook')
         ->and($delivery->subjectType)->toBe('event')
         ->and($delivery->subjectId)->toBe('evt_1')
@@ -214,7 +214,7 @@ it('reads the delivery log with the filter as query parameters', function (): vo
         parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
         return str_starts_with($request->url(), 'https://relay.test/v1/deliveries?')
-            && $request->hasHeader('Relay-Scope', 'ws_1')
+            && $request->hasHeader('Relay-Project', 'ws_1')
             && $query === ['channel' => 'webhook', 'status' => 'delivered', 'from' => '2026-11-01T00:00:00Z', 'to' => '2026-11-30T00:00:00Z', 'limit' => '10', 'cursor' => 'c1'];
     });
 });
@@ -260,7 +260,7 @@ it('carries the field errors of a validation problem', function (): void {
     Http::fake(['relay.test/*' => Http::response(problem(422, 'Unprocessable Content', 'The name is too long.', ['errors' => ['name' => ['The name is too long.'], 'settings.region' => ['Unknown region.', 'Pick one.']]]), 422)]);
 
     try {
-        transport()->putScope('ws_1', str_repeat('a', 300));
+        transport()->putProject('ws_1', str_repeat('a', 300));
         $this->fail('No exception was thrown.');
     } catch (RelayInvalid $e) {
         expect($e->errors)->toBe(['name' => ['The name is too long.'], 'settings.region' => ['Unknown region.', 'Pick one.']])
@@ -327,23 +327,23 @@ it('throws RelayUnavailable when Relay cannot be reached', function (): void {
 it('does not turn a 404 on a list or a put into null', function (): void {
     Http::fake(['relay.test/*' => Http::response(problem(404, 'Not Found'), 404)]);
 
-    expect(fn () => transport()->listScopes())->toThrow(RelayNotFound::class)
-        ->and(fn () => transport()->putScope('ws_1'))->toThrow(RelayNotFound::class);
+    expect(fn () => transport()->listProjects())->toThrow(RelayNotFound::class)
+        ->and(fn () => transport()->putProject('ws_1'))->toThrow(RelayNotFound::class);
 });
 
 it('refuses a success body it cannot read', function (mixed $body): void {
     Http::fake(['relay.test/*' => Http::response($body)]);
 
-    transport()->findScope('ws_1');
+    transport()->findProject('ws_1');
 })->with([
     'not JSON' => ['ok'],
     'a missing id' => [['external_ref' => 'ws_1', 'name' => 'Acme', 'created_at' => '2026-11-12T10:00:00Z']],
-    'a date that is not one' => [['id' => 'scp_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'created_at' => 'yesterday-ish at noon?']],
+    'a date that is not one' => [['id' => 'prj_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'created_at' => 'yesterday-ish at noon?']],
     'a wrong type' => [['id' => 7, 'external_ref' => 'ws_1', 'name' => 'Acme', 'created_at' => '2026-11-12T10:00:00Z']],
 ])->throws(RelayMalformedResponse::class);
 
 it('refuses an environment it does not know', function (): void {
-    Http::fake(['relay.test/*' => Http::response(['organization' => ['id' => 'org_1', 'name' => 'Cbox'], 'environment' => 'staging', 'scope' => null, 'key' => ['id' => 'key_1', 'name' => 'k', 'prefix' => 'p', 'abilities' => []]])]);
+    Http::fake(['relay.test/*' => Http::response(['organization' => ['id' => 'org_1', 'name' => 'Cbox'], 'environment' => 'staging', 'project' => null, 'key' => ['id' => 'key_1', 'name' => 'k', 'prefix' => 'p', 'abilities' => []]])]);
 
     transport()->whoami();
 })->throws(RelayMalformedResponse::class);
@@ -367,11 +367,11 @@ it('uses the configured timeouts and strips a trailing slash from the url', func
         return Http::response(['data' => [], 'next_cursor' => null]);
     });
 
-    transport()->listScopes();
+    transport()->listProjects();
 
     expect($seen)->toBe(['timeout' => 7.0, 'connect_timeout' => 3.0]);
 
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/scopes');
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/projects');
 });
 
 it('falls back to 5 and 2 seconds when the timeouts are unusable', function (): void {

@@ -6,7 +6,7 @@ namespace Cbox\Relay\Client\Testing;
 
 use Cbox\Relay\Client\Data\PushUrgency;
 
-/** One push message {@see FakeRelay} was asked to send: to which subscription, with what, for which scope. */
+/** One push message {@see FakeRelay} was asked to send: to which subscription, with what, for which project. */
 readonly class SentPush
 {
     /**
@@ -18,6 +18,6 @@ readonly class SentPush
         public ?int $ttl = null,
         public ?PushUrgency $urgency = null,
         public ?string $topic = null,
-        public ?string $scope = null,
+        public ?string $project = null,
     ) {}
 }

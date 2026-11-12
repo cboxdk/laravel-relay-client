@@ -14,24 +14,24 @@ use SensitiveParameter;
 /** Inbound webhook sources, in memory: sources are stored, no provider ever calls one. */
 trait FakesSources
 {
-    /** @var array<string, array<string, Source>> by scope, then id */
+    /** @var array<string, array<string, Source>> by project, then id */
     private array $sources = [];
 
     /** @var array<string, string> source id => the secret it verifies with now; never given back by a call */
     private array $sourceSecrets = [];
 
-    public function listSources(?string $scope = null): array
+    public function listSources(?string $project = null): array
     {
-        $this->record(new RecordedCall(Operation::ListSources, $scope));
+        $this->record(new RecordedCall(Operation::ListSources, $project));
 
-        return array_values($this->sources[$this->bucket($scope)] ?? []);
+        return array_values($this->sources[$this->bucket($project)] ?? []);
     }
 
-    public function createSource(string $name, SourceScheme $scheme, #[SensitiveParameter] string $secret, ?string $idempotencyKey = null, ?string $scope = null): Source
+    public function createSource(string $name, SourceScheme $scheme, #[SensitiveParameter] string $secret, ?string $idempotencyKey = null, ?string $project = null): Source
     {
         // The secret is not recorded: a recorded call can end up in a failure message.
-        $this->record(new RecordedCall(Operation::CreateSource, $scope, $name, $scheme->value, idempotencyKey: $idempotencyKey));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::CreateSource, $project, $name, $scheme->value, idempotencyKey: $idempotencyKey));
+        $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::CreateSource, $bucket, [$name, $scheme, hash('sha256', $secret)]);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
@@ -48,7 +48,7 @@ trait FakesSources
         }
 
         if (array_find($this->sources[$bucket] ?? [], static fn (Source $source): bool => $source->name === $name) !== null) {
-            throw $this->invalid('name', "This scope has a source named '{$name}' already.");
+            throw $this->invalid('name', "This project has a source named '{$name}' already.");
         }
 
         $id = 'src_fake_'.$this->nextNumber();
@@ -60,17 +60,17 @@ trait FakesSources
         return $this->remember($idempotencyKey, $fingerprint, $source);
     }
 
-    public function findSource(string $id, ?string $scope = null): ?Source
+    public function findSource(string $id, ?string $project = null): ?Source
     {
-        $this->record(new RecordedCall(Operation::FindSource, $scope, $id));
+        $this->record(new RecordedCall(Operation::FindSource, $project, $id));
 
-        return $this->sources[$this->bucket($scope)][$id] ?? null;
+        return $this->sources[$this->bucket($project)][$id] ?? null;
     }
 
-    public function rotateSourceSecret(string $id, #[SensitiveParameter] string $secret, ?string $scope = null): Source
+    public function rotateSourceSecret(string $id, #[SensitiveParameter] string $secret, ?string $project = null): Source
     {
-        $this->record(new RecordedCall(Operation::RotateSourceSecret, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::RotateSourceSecret, $project, $id));
+        $bucket = $this->bucket($project);
         $source = $this->sourceIn($bucket, $id);
 
         if ($secret === '' || strlen($secret) > 500) {
@@ -85,36 +85,36 @@ trait FakesSources
         );
     }
 
-    public function pauseSource(string $id, ?string $scope = null): Source
+    public function pauseSource(string $id, ?string $project = null): Source
     {
-        $this->record(new RecordedCall(Operation::PauseSource, $scope, $id));
+        $this->record(new RecordedCall(Operation::PauseSource, $project, $id));
 
-        return $this->sourceStatus($this->bucket($scope), $id, 'paused');
+        return $this->sourceStatus($this->bucket($project), $id, 'paused');
     }
 
-    public function resumeSource(string $id, ?string $scope = null): Source
+    public function resumeSource(string $id, ?string $project = null): Source
     {
-        $this->record(new RecordedCall(Operation::ResumeSource, $scope, $id));
+        $this->record(new RecordedCall(Operation::ResumeSource, $project, $id));
 
-        return $this->sourceStatus($this->bucket($scope), $id, 'active');
+        return $this->sourceStatus($this->bucket($project), $id, 'active');
     }
 
-    public function deleteSource(string $id, ?string $scope = null): void
+    public function deleteSource(string $id, ?string $project = null): void
     {
-        $this->record(new RecordedCall(Operation::DeleteSource, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::DeleteSource, $project, $id));
+        $bucket = $this->bucket($project);
         $this->sourceIn($bucket, $id);
 
         unset($this->sources[$bucket][$id], $this->sourceSecrets[$id]);
     }
 
     /**
-     * Store a source for a scope (stored first if it is not there) as if it had been
+     * Store a source for a project (stored first if it is not there) as if it had been
      * created earlier, without recording a call.
      */
-    public function seedSource(string $scope, string $name, SourceScheme $scheme = SourceScheme::StandardWebhooks, #[SensitiveParameter] string $secret = 'fake_provider_secret', string $status = 'active'): Source
+    public function seedSource(string $project, string $name, SourceScheme $scheme = SourceScheme::StandardWebhooks, #[SensitiveParameter] string $secret = 'fake_provider_secret', string $status = 'active'): Source
     {
-        $bucket = ($this->scope($scope) ?? $this->seedScope($scope))->id;
+        $bucket = ($this->project($project) ?? $this->seedProject($project))->id;
         $id = 'src_fake_'.$this->nextNumber();
 
         $this->sourceSecrets[$id] = $secret;
@@ -149,7 +149,7 @@ trait FakesSources
 
     private function sourceIn(string $bucket, string $id): Source
     {
-        return $this->sources[$bucket][$id] ?? throw $this->missing('source_not_found', 'No source with that id exists in this scope.');
+        return $this->sources[$bucket][$id] ?? throw $this->missing('source_not_found', 'No source with that id exists in this project.');
     }
 
     private function sourceStatus(string $bucket, string $id, string $status): Source

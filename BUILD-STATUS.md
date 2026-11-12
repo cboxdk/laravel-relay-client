@@ -7,11 +7,11 @@ Released as v0.1.0. It has not been run against a live Relay.
 ## Built and tested
 
 - `Contracts\RelayTransport`: one method per endpoint. `Http\HttpRelayTransport`
-  implements it over Laravel's HTTP client with the bearer key, `Relay-Scope` when
-  acting for a scope, `Idempotency-Key` where the API takes one and the caller gave it,
+  implements it over Laravel's HTTP client with the bearer key, `Relay-Project` when
+  acting for a project, `Idempotency-Key` where the API takes one and the caller gave it,
   and the configured `timeout` / `connect_timeout`.
   - `GET /v1/whoami`
-  - `GET /v1/scopes`, `GET|PUT /v1/scopes/{ref}`
+  - `GET /v1/projects`, `GET|PUT /v1/projects/{ref}`
   - `GET /v1/deliveries`
   - `GET|PUT /v1/event-types`
   - `GET|POST /v1/events`, `POST /v1/events/batch`, `GET /v1/events/{id}`
@@ -34,20 +34,20 @@ Released as v0.1.0. It has not been run against a live Relay.
   `RelayInvalid` (field errors), 429 `RelayRateLimited` (`Retry-After` in seconds or as
   an HTTP date), 5xx and connection errors `RelayUnavailable`, any other status the base
   `RelayException`. Plus `RelayNotConfigured`, `RelayMalformedResponse`,
-  `RelayScopeRequired` and `RelayWebhookRejected`.
-- The `Relay` manager, its fronts (`Scopes`, `EventTypes`, `Endpoints`, `Events`,
+  `RelayProjectRequired` and `RelayWebhookRejected`.
+- The `Relay` manager, its fronts (`Projects`, `EventTypes`, `Endpoints`, `Events`,
   `Sources`, `InboundRoutes`, `Inbound`, `PushSubscriptions`, `Domains`, `Suppressions`)
   and the
-  facade, with `forScope()`, `withoutScope()`, `relay.scope` and `relay.scope_key`.
-  Calls that need a scope throw `RelayScopeRequired` before a request is made, and
-  Relay's own 422 `scope_required` is thrown as the same exception.
+  facade, with `forProject()`, `withoutProject()`, `relay.project` and `relay.project_key`.
+  Calls that need a project throw `RelayProjectRequired` before a request is made, and
+  Relay's own 422 `project_required` is thrown as the same exception.
 - `Relay::publish()` through `Contracts\EventPublisher`: `Jobs\PublishEvent` queued after
   commit with a generated idempotency key, its retry rules (permanent on 403, 404, 413,
   422; `Retry-After` on 429; backoff otherwise), `relay.publish.sync`, `publishNow()` and
   `publishBatch()`. An event's `subject` travels with all of them, and
   `eraseSubject()` removes a subject's events.
 - The `relay` mail transport (`Mail\RelayMailTransport`, `Mail\EmailMapper`): from, to,
-  cc, bcc, reply-to, subject, html, text, allowed headers, attachments as base64; scope
+  cc, bcc, reply-to, subject, html, text, allowed headers, attachments as base64; project
   and idempotency key from control headers.
 - `Notifications\RelayWebPushChannel` and `WebPushMessage`.
 - The `relay.webhook` middleware, `Webhooks\WebhookSignature` (the `cbox` scheme,
@@ -74,10 +74,10 @@ Released as v0.1.0. It has not been run against a live Relay.
   ask for them, so they are not parsed.
 - **Inline images in mail.** The API's attachments have no content id, so an embedded
   image goes as an ordinary attachment.
-- **Suspending, deleting or renaming scopes** beyond what a `put` does, and **key
+- **Suspending, deleting or renaming projects** beyond what a `put` does, and **key
   management**: not in the API.
 - **Client-side key checks.** The client does not validate the `rlk_…` format and does
-  not know an organization key from a scope key; `relay.scope_key` is how you tell it.
+  not know an organization key from a project key; `relay.project_key` is how you tell it.
 
 ## Not verified
 

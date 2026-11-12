@@ -6,7 +6,7 @@ weight: 50
 
 # Security
 
-- [Threat model](threat-model.md): the key, the scope header, and what this package
+- [Threat model](threat-model.md): the key, the project header, and what this package
   does and does not defend against
 
 To report a vulnerability, see

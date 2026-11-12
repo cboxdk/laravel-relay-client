@@ -31,7 +31,7 @@ $page = Relay::deliveries(
 `Relay::deliveries()` reads everything the key may see. `from` and `to` take any
 `DateTimeInterface` and go out as ISO 8601 in UTC.
 
-With an organization key, `Relay::forScope($ref)->deliveries()` reads one scope's log.
+With an organization key, `Relay::forProject($ref)->deliveries()` reads one project's log.
 
 ## Paging
 
@@ -44,7 +44,7 @@ See the [recipe](../cookbook/page-through-the-delivery-log.md).
 | Property | Type | |
 |----------|------|-|
 | `id` | `string` | `dlv_…` |
-| `scopeId` | `?string` | `scp_…` |
+| `projectId` | `?string` | `prj_…` |
 | `channel` | `string` | Relay's string, e.g. `webhook` |
 | `subjectType`, `subjectId` | `string` | what was delivered |
 | `target` | `string` | where to |

@@ -11,9 +11,9 @@ use Cbox\Relay\Client\Webhooks\Events\MailBlocked;
 use Cbox\Relay\Client\Webhooks\Events\MailBounced;
 use Cbox\Relay\Client\Webhooks\Events\MailComplained;
 use Cbox\Relay\Client\Webhooks\Events\MailReceived;
+use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundPaused;
 use Cbox\Relay\Client\Webhooks\Events\PushDelivered;
 use Cbox\Relay\Client\Webhooks\Events\PushExpired;
-use Cbox\Relay\Client\Webhooks\Events\ScopeOutboundPaused;
 use Cbox\Relay\Client\Webhooks\IncomingWebhook;
 use Cbox\Relay\Client\Webhooks\WebhookSignature;
 use Illuminate\Http\Request;
@@ -25,10 +25,10 @@ use Illuminate\Support\Facades\Route;
  * signed by Cbox\WebhookSignature\Schemes\CboxScheme (cboxdk/laravel-webhook-signature),
  * the code Relay itself signs with. The header below is its output, not this package's.
  */
-const VECTOR_BODY = '{"id":"01JBF0000000000000000000AA","type":"mail.bounced","created_at":"2026-11-12T10:00:00+00:00","delivery_id":"01JBF0000000000000000000BB","attempt":1,"sequence":41,"scope":{"partition":"org_1","key":"scp_1"},"api_version":null,"data":{"id":"msg_1","scope_id":"scp_1","recipient":"ann@example.com","permanent":true,"status":"5.1.1","diagnostic":"550 no such user"}}';
+const VECTOR_BODY = '{"id":"01JBF0000000000000000000AA","type":"mail.bounced","created_at":"2026-11-12T10:00:00+00:00","delivery_id":"01JBF0000000000000000000BB","attempt":1,"sequence":41,"scope":{"partition":"org_1","key":"prj_1"},"api_version":null,"data":{"id":"msg_1","project_id":"prj_1","recipient":"ann@example.com","permanent":true,"status":"5.1.1","diagnostic":"550 no such user"}}';
 const VECTOR_SECRET = 'fake_secret_for_vectors';
 const VECTOR_TIME = 1794477600;
-const VECTOR_HEADER = 't=1794477600,v1=9a9244351ffbc4caeb0e551deec4bcc30449ef55e1c3e8e5c5633df7fba193ad';
+const VECTOR_HEADER = 't=1794477600,v1=bed4c23952aff7c04417254d18bee3615a7cad31db700cdba5c9587d4eeace0a';
 
 function rejection(Closure $verify): string
 {
@@ -46,7 +46,7 @@ function rejection(Closure $verify): string
  */
 function cboxEnvelope(string $type, array $data): string
 {
-    return (string) json_encode(['id' => 'evt_1', 'type' => $type, 'created_at' => '2026-11-12T10:00:00+00:00', 'delivery_id' => 'whd_1', 'attempt' => 2, 'sequence' => 7, 'scope' => ['partition' => 'org_1', 'key' => 'scp_1'], 'api_version' => null, 'data' => $data]);
+    return (string) json_encode(['id' => 'evt_1', 'type' => $type, 'created_at' => '2026-11-12T10:00:00+00:00', 'delivery_id' => 'whd_1', 'attempt' => 2, 'sequence' => 7, 'scope' => ['partition' => 'org_1', 'key' => 'prj_1'], 'api_version' => null, 'data' => $data]);
 }
 
 it('verifies the reference implementation\'s signature', function (): void {
@@ -91,7 +91,7 @@ it('reads the cbox envelope', function (): void {
         ->and($webhook->deliveryId)->toBe('01JBF0000000000000000000BB')
         ->and($webhook->attempt)->toBe(1)
         ->and($webhook->sequence)->toBe(41)
-        ->and($webhook->scopeId)->toBe('scp_1')
+        ->and($webhook->projectId)->toBe('prj_1')
         ->and($webhook->apiVersion)->toBeNull()
         ->and($webhook->occurredAt?->format('c'))->toBe('2026-11-12T10:00:00+00:00')
         ->and($webhook->fromRelay())->toBeTrue();
@@ -109,8 +109,8 @@ it('reads the cbox envelope', function (): void {
 it('reads the CloudEvents envelope into the same thing', function (): void {
     $webhook = IncomingWebhook::parse((string) json_encode([
         'specversion' => '1.0', 'id' => 'evt_1', 'source' => 'https://api.cboxrelay.com', 'type' => 'push.expired', 'time' => '2026-11-12T10:00:00Z',
-        'subject' => 'org_1/scp_1', 'datacontenttype' => 'application/json', 'deliveryid' => 'whd_1', 'sequence' => '41', 'sequencetype' => 'Integer', 'attempt' => 3,
-        'data' => ['id' => 'psm_1', 'scope_id' => 'scp_1', 'subscription_id' => 'psb_1', 'external_ref' => 'contact-9', 'attempts' => 1],
+        'subject' => 'org_1/prj_1', 'datacontenttype' => 'application/json', 'deliveryid' => 'whd_1', 'sequence' => '41', 'sequencetype' => 'Integer', 'attempt' => 3,
+        'data' => ['id' => 'psm_1', 'project_id' => 'prj_1', 'subscription_id' => 'psb_1', 'external_ref' => 'contact-9', 'attempts' => 1],
     ]));
 
     expect($webhook->envelope)->toBe(Envelope::CloudEvents)
@@ -118,7 +118,7 @@ it('reads the CloudEvents envelope into the same thing', function (): void {
         ->and($webhook->deliveryId)->toBe('whd_1')
         ->and($webhook->sequence)->toBe(41)
         ->and($webhook->attempt)->toBe(3)
-        ->and($webhook->scopeId)->toBe('scp_1')
+        ->and($webhook->projectId)->toBe('prj_1')
         ->and($webhook->occurredAt?->getTimestamp())->toBe(1794477600)
         ->and($webhook->event())->toBeInstanceOf(PushExpired::class)
         ->and($webhook->event()->subscriptionId)->toBe('psb_1')
@@ -130,20 +130,20 @@ it('reads every one of Relay\'s own events', function (string $type, array $data
 
     expect($event)->toBeInstanceOf($class)->and($class::type())->toBe($type)->and($check($event))->toBeTrue();
 })->with([
-    'mail.received' => ['mail.received', ['id' => 'inb_1', 'scope_id' => 'scp_1', 'recipient' => 'hello@acme.dk', 'envelope_from' => 'ann@example.com', 'from' => 'ann@example.com', 'subject' => 'Hi', 'kind' => 'auto_reply', 'auto_reply' => true, 'attachments' => 2, 'size' => 1200, 'received_at' => '2026-11-12T10:00:00Z'],
+    'mail.received' => ['mail.received', ['id' => 'inb_1', 'project_id' => 'prj_1', 'recipient' => 'hello@acme.dk', 'envelope_from' => 'ann@example.com', 'from' => 'ann@example.com', 'subject' => 'Hi', 'kind' => 'auto_reply', 'auto_reply' => true, 'attachments' => 2, 'size' => 1200, 'received_at' => '2026-11-12T10:00:00Z'],
         MailReceived::class, fn (MailReceived $e): bool => $e->id === 'inb_1' && $e->autoReply && $e->kind === 'auto_reply' && $e->attachments === 2 && $e->size === 1200 && $e->from === 'ann@example.com' && $e->receivedAt?->getTimestamp() === 1794477600],
-    'mail.accepted' => ['mail.accepted', ['id' => 'msg_1', 'scope_id' => 'scp_1', 'from' => 'hello@acme.dk', 'recipients' => 3, 'suppressed' => 1, 'status' => 'queued', 'reason' => null],
+    'mail.accepted' => ['mail.accepted', ['id' => 'msg_1', 'project_id' => 'prj_1', 'from' => 'hello@acme.dk', 'recipients' => 3, 'suppressed' => 1, 'status' => 'queued', 'reason' => null],
         MailAccepted::class, fn (MailAccepted $e): bool => $e->recipients === 3 && $e->suppressed === 1 && $e->status === 'queued' && $e->reason === null],
-    'mail.blocked' => ['mail.blocked', ['id' => 'msg_1', 'scope_id' => 'scp_1', 'from' => 'hello@acme.dk', 'recipients' => 1, 'suppressed' => 1, 'status' => 'blocked', 'reason' => 'Every recipient is suppressed.'],
+    'mail.blocked' => ['mail.blocked', ['id' => 'msg_1', 'project_id' => 'prj_1', 'from' => 'hello@acme.dk', 'recipients' => 1, 'suppressed' => 1, 'status' => 'blocked', 'reason' => 'Every recipient is suppressed.'],
         MailBlocked::class, fn (MailBlocked $e): bool => $e->status === 'blocked' && $e->reason === 'Every recipient is suppressed.'],
-    'mail.complained' => ['mail.complained', ['id' => 'msg_1', 'scope_id' => 'scp_1', 'recipient' => 'ann@example.com'],
+    'mail.complained' => ['mail.complained', ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com'],
         MailComplained::class, fn (MailComplained $e): bool => $e->recipient === 'ann@example.com'],
-    'push.delivered' => ['push.delivered', ['id' => 'psm_1', 'scope_id' => 'scp_1', 'subscription_id' => 'psb_1', 'external_ref' => null, 'attempts' => 2],
+    'push.delivered' => ['push.delivered', ['id' => 'psm_1', 'project_id' => 'prj_1', 'subscription_id' => 'psb_1', 'external_ref' => null, 'attempts' => 2],
         PushDelivered::class, fn (PushDelivered $e): bool => $e->subscriptionId === 'psb_1' && $e->externalRef === null && $e->attempts === 2],
-    'endpoint.disabled' => ['endpoint.disabled', ['endpoint_id' => 'ep_1', 'scope_id' => 'scp_1', 'reason' => 'failing'],
+    'endpoint.disabled' => ['endpoint.disabled', ['endpoint_id' => 'ep_1', 'project_id' => 'prj_1', 'reason' => 'failing'],
         EndpointDisabled::class, fn (EndpointDisabled $e): bool => $e->endpointId === 'ep_1' && $e->reason === 'failing'],
-    'scope.outbound_paused' => ['scope.outbound_paused', ['scope_id' => 'scp_1', 'reason' => 'bounce_rate', 'sent' => 400, 'bounced' => 30, 'complained' => 0],
-        ScopeOutboundPaused::class, fn (ScopeOutboundPaused $e): bool => $e->reason === 'bounce_rate' && $e->sent === 400 && $e->bounced === 30 && $e->complained === 0],
+    'project.outbound_paused' => ['project.outbound_paused', ['project_id' => 'prj_1', 'reason' => 'bounce_rate', 'sent' => 400, 'bounced' => 30, 'complained' => 0],
+        ProjectOutboundPaused::class, fn (ProjectOutboundPaused $e): bool => $e->reason === 'bounce_rate' && $e->sent === 400 && $e->bounced === 30 && $e->complained === 0],
 ]);
 
 it('hands back a product\'s own event as its data', function (): void {
@@ -173,7 +173,7 @@ describe('the relay.webhook middleware', function (): void {
         Route::post('/hooks/relay', function (Request $request) {
             $webhook = IncomingWebhook::from($request);
 
-            return response()->json(['type' => $webhook->type, 'event' => $webhook->event() === null ? null : $webhook->event()::class, 'scope' => $webhook->scopeId]);
+            return response()->json(['type' => $webhook->type, 'event' => $webhook->event() === null ? null : $webhook->event()::class, 'project' => $webhook->projectId]);
         })->middleware('relay.webhook');
 
         Route::post('/hooks/open', fn (Request $request) => IncomingWebhook::from($request)->type);
@@ -184,7 +184,7 @@ describe('the relay.webhook middleware', function (): void {
     it('lets a signed delivery through and hands over the parsed webhook', function () use ($post): void {
         $this->travelTo(Carbon::createFromTimestamp(VECTOR_TIME + 10));
 
-        $post(VECTOR_BODY, VECTOR_HEADER)->assertOk()->assertExactJson(['type' => 'mail.bounced', 'event' => MailBounced::class, 'scope' => 'scp_1']);
+        $post(VECTOR_BODY, VECTOR_HEADER)->assertOk()->assertExactJson(['type' => 'mail.bounced', 'event' => MailBounced::class, 'project' => 'prj_1']);
     });
 
     it('answers 401 to a bad, a missing and a stale signature', function () use ($post): void {
@@ -225,11 +225,11 @@ describe('the relay.webhook middleware', function (): void {
         {
             public function for(Request $request): array
             {
-                return ['per_scope_secret'];
+                return ['per_project_secret'];
             }
         });
 
-        $post(VECTOR_BODY, WebhookSignature::header(VECTOR_BODY, 'per_scope_secret'))->assertOk();
+        $post(VECTOR_BODY, WebhookSignature::header(VECTOR_BODY, 'per_project_secret'))->assertOk();
         $post(VECTOR_BODY, WebhookSignature::header(VECTOR_BODY, VECTOR_SECRET))->assertUnauthorized();
     });
 

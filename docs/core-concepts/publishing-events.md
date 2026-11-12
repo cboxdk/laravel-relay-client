@@ -6,16 +6,16 @@ weight: 26
 
 # Publishing events
 
-An event you publish is delivered by Relay to every webhook endpoint of the scope that
+An event you publish is delivered by Relay to every webhook endpoint of the project that
 subscribes to its type: signed, in order per endpoint, retried for about two days.
 
 ```php
 use Cbox\Relay\Client\Facades\Relay;
 
-Relay::forScope($workspace->id)->publish('order.paid', ['id' => $order->id, 'total' => 4200]);
+Relay::forProject($workspace->id)->publish('order.paid', ['id' => $order->id, 'total' => 4200]);
 ```
 
-The type must be one the scope [declared](webhook-endpoints.md#event-types). A payload
+The type must be one the project [declared](webhook-endpoints.md#event-types). A payload
 may be 256 KB.
 
 ## publish() does not call Relay in your request
@@ -53,8 +53,8 @@ It is attempted `relay.publish.tries` times in all (5), waiting
 (10, 30, 120, 600; the last value repeats). A job that fails lands in your
 `failed_jobs` like any other; `queue:retry` publishes it with the same key.
 
-A 422 here is usually a type the scope did not declare, a 403 a suspended scope or a
-key without `events:publish`, a 404 a scope Relay does not know.
+A 422 here is usually a type the project did not declare, a 403 a suspended project or a
+key without `events:publish`, a 404 a project Relay does not know.
 
 ### Configuration
 
@@ -72,7 +72,7 @@ nothing is retried.
 ## publishNow()
 
 ```php
-$published = Relay::forScope($workspace->id)->publishNow('order.paid', $payload, "order.paid:{$order->id}");
+$published = Relay::forProject($workspace->id)->publishNow('order.paid', $payload, "order.paid:{$order->id}");
 
 $published->id;           // the event's id
 $published->deliveries;   // how many endpoints it was queued for
@@ -87,7 +87,7 @@ No idempotency key is generated here: without one, calling it twice publishes tw
 ```php
 use Cbox\Relay\Client\Data\NewEvent;
 
-$published = Relay::forScope($workspace->id)->publishBatch([
+$published = Relay::forProject($workspace->id)->publishBatch([
     new NewEvent('order.paid', ['id' => 1], idempotencyKey: 'order.paid:1'),
     new NewEvent('order.paid', ['id' => 2], idempotencyKey: 'order.paid:2'),
 ]);   // list<Published>, in the same order
@@ -102,7 +102,7 @@ Give an event a `subject` when you publish it: your own id for the person it is 
 not a name or an address.
 
 ```php
-Relay::forScope($ref)->publish('order.paid', $payload, subject: "contact_{$contact->id}");
+Relay::forProject($ref)->publish('order.paid', $payload, subject: "contact_{$contact->id}");
 ```
 
 It is stored with the event and never sent to a receiver. `publish()`, `publishNow()`
@@ -113,13 +113,13 @@ subject is 1 to 191 visible ASCII characters without spaces; anything else throw
 When that person must be erased:
 
 ```php
-$erasure = Relay::forScope($ref)->eraseSubject("contact_{$contact->id}");
+$erasure = Relay::forProject($ref)->eraseSubject("contact_{$contact->id}");
 
 $erasure->removed;   // rows that went: events, their deliveries and their attempts
 ```
 
-It removes their events in the scope. Calling it again removes nothing. An event
-published without a subject is not found: it stays until the scope's retention removes
+It removes their events in the project. Calling it again removes nothing. An event
+published without a subject is not found: it stays until the project's retention removes
 it. The delivery log keeps its rows (a target, a status and a time, no content) until
 its own retention. Needs `events:publish`.
 

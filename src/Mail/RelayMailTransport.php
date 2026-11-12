@@ -19,7 +19,7 @@ use Symfony\Component\Mime\MessageConverter;
  * your mailables as usual to keep it out of a request.
  *
  * Two headers on a message steer one send and are never passed on:
- * - `X-Relay-Scope`: the scope to send for, instead of the mailer's or `relay.scope`,
+ * - `X-Relay-Project`: the project to send for, instead of the mailer's or `relay.project`,
  * - `X-Relay-Idempotency-Key`: the `Idempotency-Key` of the call.
  *
  * After the send the message carries `X-Relay-Mail-Id` and `X-Relay-Mail-Status`, so a
@@ -28,7 +28,7 @@ use Symfony\Component\Mime\MessageConverter;
  */
 class RelayMailTransport extends AbstractTransport
 {
-    public const string SCOPE_HEADER = 'X-Relay-Scope';
+    public const string PROJECT_HEADER = 'X-Relay-Project';
 
     public const string IDEMPOTENCY_HEADER = 'X-Relay-Idempotency-Key';
 
@@ -38,11 +38,11 @@ class RelayMailTransport extends AbstractTransport
 
     /**
      * @param  Closure(): Relay  $relay  resolved per send, so a fake bound later is the one used
-     * @param  string|null  $scope  the mailer's own scope; null for the client's default
+     * @param  string|null  $project  the mailer's own project; null for the client's default
      */
     public function __construct(
         private readonly Closure $relay,
-        private readonly ?string $scope = null,
+        private readonly ?string $project = null,
     ) {
         parent::__construct();
     }
@@ -62,12 +62,12 @@ class RelayMailTransport extends AbstractTransport
 
         $email = MessageConverter::toEmail($original);
 
-        $scope = self::control($email, self::SCOPE_HEADER) ?? $this->scope;
+        $project = self::control($email, self::PROJECT_HEADER) ?? $this->project;
         $relay = ($this->relay)();
 
-        $mail = ($scope === null ? $relay : $relay->forScope($scope))->sendMail(
+        $mail = ($project === null ? $relay : $relay->forProject($project))->sendMail(
             EmailMapper::toOutgoingMail($email, [
-                strtolower(self::SCOPE_HEADER),
+                strtolower(self::PROJECT_HEADER),
                 strtolower(self::IDEMPOTENCY_HEADER),
                 strtolower(self::MAIL_ID_HEADER),
                 strtolower(self::MAIL_STATUS_HEADER),

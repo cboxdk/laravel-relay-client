@@ -7,7 +7,7 @@ namespace Cbox\Relay\Client\Data;
 use DateTimeImmutable;
 
 /**
- * Where a scope's webhooks are sent. `$secret` is only set on the answer that created
+ * Where a project's webhooks are sent. `$secret` is only set on the answer that created
  * the endpoint or rotated its secret: store it then, Relay never gives it again.
  * `$status`, `$envelope` and `$signatureScheme` are Relay's own strings.
  */

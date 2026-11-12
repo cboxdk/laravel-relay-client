@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Data;
 
 /**
- * How the mail a scope sent from one domain fared in the last `$windowDays` days,
+ * How the mail a project sent from one domain fared in the last `$windowDays` days,
  * counted in recipients: `$sent` the mail server took, of those `$bounced` refused for
  * good and `$complained` reported as spam. A rate is null when nothing was sent.
  */

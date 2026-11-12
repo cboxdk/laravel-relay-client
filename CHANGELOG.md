@@ -5,6 +5,17 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: a scope is called a project**, as in Relay itself and the other Cbox apps.
+  Relay's API is now `/v1/projects` with the header `Relay-Project`, and ids start with
+  `prj_`. Every name follows: `Relay::forProject()`, `Relay::projects()`, `putProject()`,
+  `Data\Project`, `RelayProjectRequired`, `ProjectOutboundPaused`, the config keys
+  `relay.project` and `relay.project_key` (`RELAY_PROJECT`, `RELAY_PROJECT_KEY`), the
+  mail header `X-Relay-Project`, and the fake's `seedProject()` and `assertProjectPut()`.
+  There are no aliases for the old names. The webhook envelope still carries the owner
+  under `scope`: that is the envelope's own field.
+
 ## [0.1.0] - 2026-11-12
 
 The first release.

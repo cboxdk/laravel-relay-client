@@ -22,7 +22,7 @@ use Illuminate\Support\ServiceProvider;
 /**
  * Binds the transport contract to its HTTP implementation, the publisher to the queue
  * (or to an immediate one with `relay.publish.sync`) and the {@see Relay} manager on top
- * of whatever is bound, acting for `relay.scope` when one is set. Registers the `relay`
+ * of whatever is bound, acting for `relay.project` when one is set. Registers the `relay`
  * mail transport and the `relay.webhook` route middleware.
  */
 class RelayServiceProvider extends ServiceProvider
@@ -44,9 +44,9 @@ class RelayServiceProvider extends ServiceProvider
         // means a transport bound later (a fake, a decorator) is the one that is used.
         $this->app->bind(Relay::class, static fn (Application $app): Relay => new Relay(
             $app->make(RelayTransport::class),
-            $app->make(RelayConfig::class)->scope(),
+            $app->make(RelayConfig::class)->project(),
             $app->make(EventPublisher::class),
-            $app->make(RelayConfig::class)->scopeKey(),
+            $app->make(RelayConfig::class)->projectKey(),
         ));
     }
 
@@ -59,9 +59,9 @@ class RelayServiceProvider extends ServiceProvider
         $this->callAfterResolving('mail.manager', function (MailManager $mail): void {
             // `MAIL_MAILER=relay` with `'relay' => ['transport' => 'relay']` in config/mail.php.
             $mail->extend('relay', function (array $config = []): RelayMailTransport {
-                $scope = $config['scope'] ?? null;
+                $project = $config['project'] ?? null;
 
-                return new RelayMailTransport(fn (): Relay => $this->app->make(Relay::class), is_string($scope) && $scope !== '' ? $scope : null);
+                return new RelayMailTransport(fn (): Relay => $this->app->make(Relay::class), is_string($project) && $project !== '' ? $project : null);
             });
         });
 

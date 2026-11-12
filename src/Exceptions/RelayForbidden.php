@@ -7,7 +7,7 @@ namespace Cbox\Relay\Client\Exceptions;
 use Cbox\Relay\Client\Data\Problem;
 use Throwable;
 
-/** 403: the key lacks the ability this call needs, or may not act for that scope. */
+/** 403: the key lacks the ability this call needs, or may not act for that project. */
 class RelayForbidden extends RelayException
 {
     public function __construct(

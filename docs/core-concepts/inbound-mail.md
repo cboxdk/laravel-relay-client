@@ -1,6 +1,6 @@
 ---
 title: Inbound mail
-description: Claim address patterns for a scope, read received mail with its content and attachment links, and erase it.
+description: Claim address patterns for a project, read received mail with its content and attachment links, and erase it.
 weight: 29
 ---
 
@@ -15,7 +15,7 @@ weight: 29
 ```php
 use Cbox\Relay\Client\Data\InboundRouteType;
 
-$routes = Relay::forScope($ref)->inboundRoutes();
+$routes = Relay::forProject($ref)->inboundRoutes();
 
 $routes->register(InboundRouteType::Subdomain, 'acme.cbox.email');     // active at once
 $route = $routes->register(InboundRouteType::Domain, 'acme.dk');        // pending
@@ -37,8 +37,8 @@ Needs `inbound:manage` to change routes, `inbound:read` to list them.
 ## Received mail
 
 ```php
-$page = Relay::forScope($ref)->inbound()->list(limit: 20);   // Page<InboundMessage>, summaries
-$mail = Relay::forScope($ref)->inbound()->find($id);         // ?InboundMessage with content
+$page = Relay::forProject($ref)->inbound()->list(limit: 20);   // Page<InboundMessage>, summaries
+$mail = Relay::forProject($ref)->inbound()->find($id);         // ?InboundMessage with content
 
 $mail->kind;             // 'mail', 'auto_reply', 'bounce', 'complaint', 'dmarc_report', or null
 $mail->recipient;        // the address exactly as it was sent to
@@ -52,7 +52,7 @@ foreach ($mail->attachments as $attachment) {
     $attachment->url;    // only on find(), and only good for a short while (15 minutes today)
 }
 
-Relay::forScope($ref)->inbound()->erase($id);   // the row, the raw mail, the content, every attachment
+Relay::forProject($ref)->inbound()->erase($id);   // the row, the raw mail, the content, every attachment
 ```
 
 - `$mail->html` is whatever the sender wrote. Never put it in a page without
@@ -61,8 +61,8 @@ Relay::forScope($ref)->inbound()->erase($id);   // the row, the raw mail, the co
 - Download an attachment when you need it; do not store its link.
 - `erase()` cannot be undone. It is what an erasure request needs.
 
-`inbound()` works without a scope too: an organization key acting for none reads across
-its scopes.
+`inbound()` works without a project too: an organization key acting for none reads across
+its projects.
 
 To be told when mail arrives instead of polling, subscribe an endpoint of your own to
 `mail.received`: see [Webhooks from Relay](incoming-webhooks.md).

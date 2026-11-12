@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Data;
 
 /**
- * One event type a scope offers its webhook receivers. Only `$type` is required; the
+ * One event type a project offers its webhook receivers. Only `$type` is required; the
  * rest describes it for the people who subscribe.
  */
 readonly class EventType

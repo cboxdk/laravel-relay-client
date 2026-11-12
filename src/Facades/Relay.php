@@ -15,7 +15,7 @@ use LogicException;
 
 /**
  * @method static \Cbox\Relay\Client\Data\Identity whoami()
- * @method static \Cbox\Relay\Client\Scopes scopes()
+ * @method static \Cbox\Relay\Client\Projects projects()
  * @method static \Cbox\Relay\Client\Data\Page<\Cbox\Relay\Client\Data\Delivery> deliveries(?\Cbox\Relay\Client\Data\DeliveryFilter $filter = null, ?int $limit = null, ?string $cursor = null)
  * @method static \Cbox\Relay\Client\EventTypes eventTypes()
  * @method static \Cbox\Relay\Client\Endpoints endpoints()
@@ -39,9 +39,9 @@ use LogicException;
  * @method static ?\Cbox\Relay\Client\Data\Mail mail(string $id)
  * @method static \Cbox\Relay\Client\Data\Mail releaseMail(string $id)
  * @method static \Cbox\Relay\Client\Data\Mail discardMail(string $id)
- * @method static \Cbox\Relay\Client\Relay forScope(string $ref)
- * @method static \Cbox\Relay\Client\Relay withoutScope()
- * @method static ?string scope()
+ * @method static \Cbox\Relay\Client\Relay forProject(string $ref)
+ * @method static \Cbox\Relay\Client\Relay withoutProject()
+ * @method static ?string project()
  * @method static \Cbox\Relay\Client\Contracts\RelayTransport transport()
  *
  * @see RelayManager

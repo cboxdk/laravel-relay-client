@@ -43,18 +43,18 @@ class RelayConfig
         return $this->seconds('relay.connect_timeout', 2.0);
     }
 
-    /** The scope every call acts for unless told otherwise; null when none is set. */
-    public function scope(): ?string
+    /** The project every call acts for unless told otherwise; null when none is set. */
+    public function project(): ?string
     {
-        $scope = $this->string('relay.scope');
+        $project = $this->string('relay.project');
 
-        return $scope === '' ? null : $scope;
+        return $project === '' ? null : $project;
     }
 
-    /** Whether the key is a scope key: locked to one scope, so calls need no `Relay-Scope`. */
-    public function scopeKey(): bool
+    /** Whether the key is a project key: locked to one project, so calls need no `Relay-Project`. */
+    public function projectKey(): bool
     {
-        return $this->flag('relay.scope_key');
+        return $this->flag('relay.project_key');
     }
 
     /** Whether `Relay::publish()` calls Relay in the caller's process instead of from the queue. */

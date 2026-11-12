@@ -7,7 +7,7 @@ namespace Cbox\Relay\Client\Data;
 use DateTimeImmutable;
 
 /**
- * A pattern of addresses a scope receives mail for. `$pattern` is the claim as a person
+ * A pattern of addresses a project receives mail for. `$pattern` is the claim as a person
  *
  * writes it (`*@acme.dk`, `r-*@cbox.email`). A route that is `pending` receives nothing
  * yet; `$verification` is the DNS record that proves a domain is yours, null when none

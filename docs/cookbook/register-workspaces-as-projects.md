@@ -1,12 +1,12 @@
 ---
-title: Register workspaces as scopes
-description: Keep Relay's scopes in step with your own workspaces with an idempotent put from a queued listener.
+title: Register workspaces as projects
+description: Keep Relay's projects in step with your own workspaces with an idempotent put from a queued listener.
 weight: 31
 ---
 
-# Register workspaces as scopes
+# Register workspaces as projects
 
-Put the scope when a workspace is created or renamed. Because `put` is idempotent, the
+Put the project when a workspace is created or renamed. Because `put` is idempotent, the
 same job covers both, and running it twice is harmless.
 
 ```php
@@ -19,7 +19,7 @@ use Cbox\Relay\Client\Relay;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
-class RegisterRelayScope implements ShouldQueue
+class RegisterRelayProject implements ShouldQueue
 {
     use Queueable;
 
@@ -30,7 +30,7 @@ class RegisterRelayScope implements ShouldQueue
     public function handle(Relay $relay): void
     {
         try {
-            $relay->scopes()->put((string) $this->workspace->id, name: $this->workspace->name);
+            $relay->projects()->put((string) $this->workspace->id, name: $this->workspace->name);
         } catch (RelayRateLimited $e) {
             $this->release($e->retryAfter ?? 30);
         } catch (RelayUnavailable) {
@@ -46,7 +46,7 @@ would not help.
 ## Backfill
 
 ```php
-Workspace::query()->each(fn (Workspace $workspace) => RegisterRelayScope::dispatch($workspace));
+Workspace::query()->each(fn (Workspace $workspace) => RegisterRelayProject::dispatch($workspace));
 ```
 
 ## Test it
@@ -60,7 +60,7 @@ it('registers a new workspace with Relay', function (): void {
 
     $workspace = Workspace::factory()->create(['name' => 'Acme']);
 
-    $relay->assertScopePut((string) $workspace->id, fn (RecordedCall $call): bool => $call->name === 'Acme');
-    expect($relay->scope((string) $workspace->id)?->name)->toBe('Acme');
+    $relay->assertProjectPut((string) $workspace->id, fn (RecordedCall $call): bool => $call->name === 'Acme');
+    expect($relay->project((string) $workspace->id)?->name)->toBe('Acme');
 });
 ```

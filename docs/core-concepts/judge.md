@@ -9,7 +9,7 @@ weight: 28
 ```php
 use Cbox\Relay\Client\Data\TemplateReference;
 
-$judgment = Relay::forScope($ref)->judge(
+$judgment = Relay::forProject($ref)->judge(
     html: $html,
     subject: 'Welcome',
     from: 'hello@acme.dk',                           // or a MailAddress with a name
@@ -28,7 +28,7 @@ foreach ($judgment->findings as $finding) {
     $finding->verdict; $finding->layer; $finding->rule; $finding->score; $finding->detail;
 }
 
-Relay::forScope($ref)->judgment($judgment->id);   // ?Judgment
+Relay::forProject($ref)->judgment($judgment->id);   // ?Judgment
 ```
 
 At least one of `html` and `text` is needed. Further arguments: `kind` (`JudgeKind::Mail`

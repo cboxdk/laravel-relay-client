@@ -12,7 +12,7 @@ readonly class MailComplained implements RelayEvent
 {
     public function __construct(
         public string $id,
-        public string $scopeId,
+        public string $projectId,
         public string $recipient,
     ) {}
 
@@ -25,7 +25,7 @@ readonly class MailComplained implements RelayEvent
     {
         return new self(
             Payload::string($data, 'id'),
-            Payload::string($data, 'scope_id'),
+            Payload::string($data, 'project_id'),
             Payload::string($data, 'recipient'),
         );
     }

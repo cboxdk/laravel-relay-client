@@ -10,7 +10,7 @@ use Cbox\Relay\Client\Data\PingResult;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Exceptions\RelayUnavailable;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Jobs\PublishEvent;
@@ -20,27 +20,27 @@ use PHPUnit\Framework\AssertionFailedError;
 
 beforeEach(function (): void {
     $this->relay = Relay::fake();
-    $this->relay->seedScope('ws_1', 'Acme');
+    $this->relay->seedProject('ws_1', 'Acme');
 });
 
-it('declares a scope\'s event types as exactly the ones given', function (): void {
-    $declared = Relay::forScope('ws_1')->eventTypes()->declare(['order.paid', new EventType('order.refunded', name: 'Order refunded')]);
+it('declares a project\'s event types as exactly the ones given', function (): void {
+    $declared = Relay::forProject('ws_1')->eventTypes()->declare(['order.paid', new EventType('order.refunded', name: 'Order refunded')]);
 
     expect($declared)->toHaveCount(2)
         ->and($declared[1]->name)->toBe('Order refunded')
-        ->and(Relay::forScope('ws_1')->eventTypes()->all())->toEqual($declared);
+        ->and(Relay::forProject('ws_1')->eventTypes()->all())->toEqual($declared);
 
-    Relay::forScope('ws_1')->eventTypes()->declare(['order.paid']);
+    Relay::forProject('ws_1')->eventTypes()->declare(['order.paid']);
 
     $this->relay->assertEventTypesDeclared(['order.paid'], 'ws_1');
 });
 
 it('refuses to declare one of Relay\'s own event names', function (): void {
-    Relay::forScope('ws_1')->eventTypes()->declare(['mail.received']);
+    Relay::forProject('ws_1')->eventTypes()->declare(['mail.received']);
 })->throws(RelayInvalid::class);
 
 it('registers an endpoint and gives the secret only then', function (): void {
-    $endpoints = Relay::forScope('ws_1')->endpoints();
+    $endpoints = Relay::forProject('ws_1')->endpoints();
 
     $endpoint = $endpoints->register('https://customer.example/hooks', ['order.*'], description: 'Orders', envelope: Envelope::CloudEvents);
 
@@ -56,7 +56,7 @@ it('registers an endpoint and gives the secret only then', function (): void {
 });
 
 it('answers a repeated registration with the same idempotency key once', function (): void {
-    $endpoints = Relay::forScope('ws_1')->endpoints();
+    $endpoints = Relay::forProject('ws_1')->endpoints();
 
     $first = $endpoints->register('https://customer.example/hooks', ['*'], idempotencyKey: 'reg-1');
     $again = $endpoints->register('https://customer.example/hooks', ['*'], idempotencyKey: 'reg-1');
@@ -67,11 +67,11 @@ it('answers a repeated registration with the same idempotency key once', functio
 });
 
 it('refuses an endpoint that is not https', function (): void {
-    Relay::forScope('ws_1')->endpoints()->register('http://customer.example/hooks', ['*']);
+    Relay::forProject('ws_1')->endpoints()->register('http://customer.example/hooks', ['*']);
 })->throws(RelayInvalid::class);
 
 it('updates, pauses, resumes, rotates, pings and deletes an endpoint', function (): void {
-    $endpoints = Relay::forScope('ws_1')->endpoints();
+    $endpoints = Relay::forProject('ws_1')->endpoints();
     $endpoint = $endpoints->register('https://customer.example/hooks', ['order.*'], description: 'Orders');
 
     $updated = $endpoints->update($endpoint->id, eventTypes: ['*'], clearDescription: true);
@@ -97,23 +97,23 @@ it('updates, pauses, resumes, rotates, pings and deletes an endpoint', function 
 it('records a publish on the fake at once instead of queueing a job', function (): void {
     Bus::fake();
 
-    $key = Relay::forScope('ws_1')->publish('order.paid', ['id' => 'o_1'], occurredAt: new DateTimeImmutable('2026-11-12T10:00:00Z'));
+    $key = Relay::forProject('ws_1')->publish('order.paid', ['id' => 'o_1'], occurredAt: new DateTimeImmutable('2026-11-12T10:00:00Z'));
 
     Bus::assertNothingDispatched();
 
     expect($key)->toStartWith('pub_');
 
     $this->relay->assertPublished('order.paid');
-    $this->relay->assertPublished('order.paid', fn (NewEvent $event, ?string $scope): bool => $event->payload === ['id' => 'o_1']
+    $this->relay->assertPublished('order.paid', fn (NewEvent $event, ?string $project): bool => $event->payload === ['id' => 'o_1']
         && $event->idempotencyKey === $key
         && $event->occurredAt?->format('c') === '2026-11-12T10:00:00+00:00'
-        && $scope === 'ws_1');
+        && $project === 'ws_1');
     $this->relay->assertPublishedTimes('order.paid', 1);
     $this->relay->assertNotPublished('order.refunded');
 });
 
 it('publishes the same idempotency key once', function (): void {
-    $relay = Relay::forScope('ws_1');
+    $relay = Relay::forProject('ws_1');
     $relay->endpoints()->register('https://customer.example/hooks', ['order.*']);
     $relay->endpoints()->register('https://other.example/hooks', ['invoice.paid']);
 
@@ -129,8 +129,8 @@ it('publishes the same idempotency key once', function (): void {
     $this->relay->assertCalledTimes(Operation::PublishEvent, 2);
 });
 
-it('only publishes declared types once a scope has declared some', function (): void {
-    $relay = Relay::forScope('ws_1');
+it('only publishes declared types once a project has declared some', function (): void {
+    $relay = Relay::forProject('ws_1');
     $relay->publishNow('anything.goes');
 
     $relay->eventTypes()->declare(['order.paid']);
@@ -140,7 +140,7 @@ it('only publishes declared types once a scope has declared some', function (): 
 });
 
 it('publishes a batch, all or none', function (): void {
-    $relay = Relay::forScope('ws_1');
+    $relay = Relay::forProject('ws_1');
     $relay->eventTypes()->declare(['order.paid']);
 
     $published = $relay->publishBatch([new NewEvent('order.paid', ['id' => 'o_1']), new NewEvent('order.paid', ['id' => 'o_2'])]);
@@ -154,7 +154,7 @@ it('publishes a batch, all or none', function (): void {
 
 it('reads events, their deliveries, retries one and replays an endpoint', function (): void {
     $this->travelTo('2026-11-12 10:00:00');
-    $relay = Relay::forScope('ws_1');
+    $relay = Relay::forProject('ws_1');
     $endpoint = $relay->endpoints()->register('https://customer.example/hooks', ['order.*']);
 
     $published = $relay->publishNow('order.paid', ['id' => 'o_1']);
@@ -187,17 +187,17 @@ it('reads events, their deliveries, retries one and replays an endpoint', functi
         ->and($relay->endpoints()->find($endpoint->id)?->lastSequence)->toBe(2);
 });
 
-it('keeps each scope\'s webhooks apart', function (): void {
-    $this->relay->seedScope('ws_2');
-    Relay::forScope('ws_1')->endpoints()->register('https://customer.example/hooks', ['*']);
-    Relay::forScope('ws_1')->publishNow('order.paid');
+it('keeps each project\'s webhooks apart', function (): void {
+    $this->relay->seedProject('ws_2');
+    Relay::forProject('ws_1')->endpoints()->register('https://customer.example/hooks', ['*']);
+    Relay::forProject('ws_1')->publishNow('order.paid');
 
-    expect(Relay::forScope('ws_2')->endpoints()->list())->toBe([])
-        ->and(Relay::forScope('ws_2')->events()->list())->toHaveCount(0);
+    expect(Relay::forProject('ws_2')->endpoints()->list())->toBe([])
+        ->and(Relay::forProject('ws_2')->events()->list())->toHaveCount(0);
 });
 
-it('throws before anything is sent when a scoped call has no scope', function (Closure $call): void {
-    expect($call)->toThrow(RelayScopeRequired::class);
+it('throws before anything is sent when a scoped call has no project', function (Closure $call): void {
+    expect($call)->toThrow(RelayProjectRequired::class);
 
     $this->relay->assertNothingSent();
 })->with([
@@ -215,34 +215,34 @@ it('throws before anything is sent when a scoped call has no scope', function (C
     'domains' => [fn () => Relay::domains()->list()],
     'suppressions' => [fn () => Relay::suppressions()->list()],
     'mail' => [fn () => Relay::mail('msg_1')],
-    'after withoutScope' => [fn () => Relay::forScope('ws_1')->withoutScope()->endpoints()->list()],
+    'after withoutProject' => [fn () => Relay::forProject('ws_1')->withoutProject()->endpoints()->list()],
 ]);
 
-it('lets scoped calls through without a scope when the key is a scope key', function (): void {
-    config()->set('relay.scope_key', true);
+it('lets scoped calls through without a project when the key is a project key', function (): void {
+    config()->set('relay.project_key', true);
 
     Relay::publish('order.paid');
     Relay::endpoints()->list();
 
-    $this->relay->assertPublished('order.paid', fn (NewEvent $event, ?string $scope): bool => $scope === null);
+    $this->relay->assertPublished('order.paid', fn (NewEvent $event, ?string $project): bool => $project === null);
 });
 
-it('uses the configured default scope for scoped calls', function (): void {
-    config()->set('relay.scope', 'ws_1');
+it('uses the configured default project for scoped calls', function (): void {
+    config()->set('relay.project', 'ws_1');
 
     Relay::publish('order.paid');
 
-    $this->relay->assertPublished('order.paid', fn (NewEvent $event, ?string $scope): bool => $scope === 'ws_1');
-    $this->relay->assertActedForScope('ws_1');
+    $this->relay->assertPublished('order.paid', fn (NewEvent $event, ?string $project): bool => $project === 'ws_1');
+    $this->relay->assertActedForProject('ws_1');
 });
 
-it('answers 404 for a scope the fake does not know, unless told to accept any', function (): void {
-    expect(fn () => Relay::forScope('ws_unknown')->publish('order.paid'))->toThrow(RelayNotFound::class);
+it('answers 404 for a project the fake does not know, unless told to accept any', function (): void {
+    expect(fn () => Relay::forProject('ws_unknown')->publish('order.paid'))->toThrow(RelayNotFound::class);
 
-    $this->relay->acceptAnyScope();
-    Relay::forScope('ws_unknown')->publish('order.paid');
+    $this->relay->acceptAnyProject();
+    Relay::forProject('ws_unknown')->publish('order.paid');
 
-    expect($this->relay->scope('ws_unknown'))->not->toBeNull();
+    expect($this->relay->project('ws_unknown'))->not->toBeNull();
     $this->relay->assertPublishedTimes('order.paid', 1);
 });
 
@@ -250,7 +250,7 @@ it('fails its publish assertions when they do not hold', function (): void {
     expect(fn () => $this->relay->assertPublished('order.paid'))->toThrow(AssertionFailedError::class);
 
     $this->relay->assertNothingPublished();
-    Relay::forScope('ws_1')->publish('order.paid', ['id' => 'o_1']);
+    Relay::forProject('ws_1')->publish('order.paid', ['id' => 'o_1']);
 
     expect(fn () => $this->relay->assertNothingPublished())->toThrow(AssertionFailedError::class)
         ->and(fn () => $this->relay->assertNotPublished('order.paid'))->toThrow(AssertionFailedError::class)
@@ -262,7 +262,7 @@ it('fails its publish assertions when they do not hold', function (): void {
 it('throws what the fake was told to fail with from a publish', function (): void {
     $this->relay->failWith(new RelayUnavailable);
 
-    expect(fn () => Relay::forScope('ws_1')->publish('order.paid'))->toThrow(RelayUnavailable::class);
+    expect(fn () => Relay::forProject('ws_1')->publish('order.paid'))->toThrow(RelayUnavailable::class);
 
     $this->relay->assertNothingPublished();
 });

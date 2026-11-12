@@ -20,7 +20,7 @@ API key, the public endpoint, nothing else.
   register, pause, rotate, ping and replay endpoints, read events and their deliveries.
 - **[Outbound mail](core-concepts/outbound-mail.md)**: sending domains, the suppression
   list, `Relay::sendMail()`, and a `relay` mail transport so `MAIL_MAILER=relay` works.
-- **[Web Push](core-concepts/web-push.md)**: the scope's key, browser subscriptions,
+- **[Web Push](core-concepts/web-push.md)**: the project's key, browser subscriptions,
   `Relay::push()`, and a Laravel notification channel.
 - **[Inbound mail](core-concepts/inbound-mail.md)**: claim addresses, read received
   mail with content and attachment links, erase it.
@@ -28,10 +28,10 @@ API key, the public endpoint, nothing else.
 - **[Webhooks from Relay](core-concepts/incoming-webhooks.md)**: the `relay.webhook`
   middleware verifies a delivery, and Relay's own events arrive as typed objects.
 - **[Inbound webhooks](core-concepts/inbound-webhooks.md)**: sources that take a
-  provider's webhooks for a scope and forward them to your endpoints.
-- **[Authentication and scopes](core-concepts/authentication.md)**: `whoami()`,
-  `forScope()`, and a clear exception when a call needs a scope and has none.
-- **[Scopes](core-concepts/scopes.md)** and **[the delivery log](core-concepts/deliveries.md)**.
+  provider's webhooks for a project and forward them to your endpoints.
+- **[Authentication and projects](core-concepts/authentication.md)**: `whoami()`,
+  `forProject()`, and a clear exception when a call needs a project and has none.
+- **[Projects](core-concepts/projects.md)** and **[the delivery log](core-concepts/deliveries.md)**.
 - **[Typed errors](core-concepts/errors.md)**: every problem answer is its own exception.
 - **[A fake](getting-started/testing.md)**: `Relay::fake()` keeps all of it in memory,
   with assertions.
@@ -64,8 +64,8 @@ written.
 ## Documentation
 
 - **Getting started**: [Requirements](requirements.md), [Installation](getting-started/installation.md), [Quickstart](quickstart.md), [Testing](getting-started/testing.md)
-- **Core concepts**: [Architecture](core-concepts/architecture.md), [Authentication](core-concepts/authentication.md), [Scopes](core-concepts/scopes.md), [Deliveries](core-concepts/deliveries.md), [Errors](core-concepts/errors.md), [Publishing events](core-concepts/publishing-events.md), [Webhook endpoints](core-concepts/webhook-endpoints.md), [The judge](core-concepts/judge.md), [Inbound mail](core-concepts/inbound-mail.md), [Web Push](core-concepts/web-push.md), [Outbound mail](core-concepts/outbound-mail.md), [Webhooks from Relay](core-concepts/incoming-webhooks.md), [Inbound webhooks](core-concepts/inbound-webhooks.md)
-- **Cookbook**: [Register workspaces as scopes](cookbook/register-workspaces-as-scopes.md), [Page through the delivery log](cookbook/page-through-the-delivery-log.md), [Offer webhooks to your customers](cookbook/offer-webhooks-to-your-customers.md), [React to bounces and complaints](cookbook/react-to-bounces-and-complaints.md)
+- **Core concepts**: [Architecture](core-concepts/architecture.md), [Authentication](core-concepts/authentication.md), [Projects](core-concepts/projects.md), [Deliveries](core-concepts/deliveries.md), [Errors](core-concepts/errors.md), [Publishing events](core-concepts/publishing-events.md), [Webhook endpoints](core-concepts/webhook-endpoints.md), [The judge](core-concepts/judge.md), [Inbound mail](core-concepts/inbound-mail.md), [Web Push](core-concepts/web-push.md), [Outbound mail](core-concepts/outbound-mail.md), [Webhooks from Relay](core-concepts/incoming-webhooks.md), [Inbound webhooks](core-concepts/inbound-webhooks.md)
+- **Cookbook**: [Register workspaces as projects](cookbook/register-workspaces-as-projects.md), [Page through the delivery log](cookbook/page-through-the-delivery-log.md), [Offer webhooks to your customers](cookbook/offer-webhooks-to-your-customers.md), [React to bounces and complaints](cookbook/react-to-bounces-and-complaints.md)
 - **Configuration**: [Reference](configuration/reference.md)
 - **Extension points**: [Overview](extension-points/_index.md)
 - **Security**: [Threat model](security/threat-model.md)

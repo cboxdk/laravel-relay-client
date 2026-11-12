@@ -16,39 +16,39 @@ use PHPUnit\Framework\Assert;
 /** Web Push, in memory: subscriptions are stored, messages are recorded and stay `queued` until the test says otherwise. */
 trait FakesPush
 {
-    /** @var array<string, array<string, PushSubscription>> by scope, then id */
+    /** @var array<string, array<string, PushSubscription>> by project, then id */
     private array $pushSubscriptions = [];
 
-    /** @var array<string, string> scope and browser endpoint => subscription id */
+    /** @var array<string, string> project and browser endpoint => subscription id */
     private array $pushEndpoints = [];
 
-    /** @var array<string, array<string, PushMessage>> by scope, then id */
+    /** @var array<string, array<string, PushMessage>> by project, then id */
     private array $pushMessages = [];
 
     /** @var list<SentPush> */
     private array $pushed = [];
 
-    public function pushKey(?string $scope = null): string
+    public function pushKey(?string $project = null): string
     {
-        $this->record(new RecordedCall(Operation::PushKey, $scope));
+        $this->record(new RecordedCall(Operation::PushKey, $project));
 
-        return 'fake-vapid-public-key-'.($this->bucket($scope) ?: 'key');
+        return 'fake-vapid-public-key-'.($this->bucket($project) ?: 'key');
     }
 
-    public function listPushSubscriptions(?string $ref = null, ?string $scope = null): array
+    public function listPushSubscriptions(?string $ref = null, ?string $project = null): array
     {
-        $this->record(new RecordedCall(Operation::ListPushSubscriptions, $scope, $ref));
+        $this->record(new RecordedCall(Operation::ListPushSubscriptions, $project, $ref));
 
         return array_values(array_filter(
-            array_reverse($this->pushSubscriptions[$this->bucket($scope)] ?? []),
+            array_reverse($this->pushSubscriptions[$this->bucket($project)] ?? []),
             static fn (PushSubscription $subscription): bool => $ref === null || $ref === '' || $subscription->ref === $ref,
         ));
     }
 
-    public function createPushSubscription(BrowserSubscription $subscription, ?string $ref = null, ?string $idempotencyKey = null, ?string $scope = null): PushSubscription
+    public function createPushSubscription(BrowserSubscription $subscription, ?string $ref = null, ?string $idempotencyKey = null, ?string $project = null): PushSubscription
     {
-        $this->record(new RecordedCall(Operation::CreatePushSubscription, $scope, $ref, idempotencyKey: $idempotencyKey, subject: $subscription));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::CreatePushSubscription, $project, $ref, idempotencyKey: $idempotencyKey, subject: $subscription));
+        $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::CreatePushSubscription, $bucket, [$subscription, $ref]);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
@@ -80,24 +80,24 @@ trait FakesPush
         return $this->remember($idempotencyKey, $fingerprint, new PushSubscription($stored->id, $stored->service, $stored->createdAt, $stored->ref, created: true));
     }
 
-    public function deletePushSubscription(string $id, ?string $scope = null): void
+    public function deletePushSubscription(string $id, ?string $project = null): void
     {
-        $this->record(new RecordedCall(Operation::DeletePushSubscription, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::DeletePushSubscription, $project, $id));
+        $bucket = $this->bucket($project);
 
         if (! isset($this->pushSubscriptions[$bucket][$id])) {
-            throw $this->missing('push_subscription_not_found', 'No push subscription with that id exists in this scope.');
+            throw $this->missing('push_subscription_not_found', 'No push subscription with that id exists in this project.');
         }
 
         $this->forgetPushSubscription($bucket, $id);
     }
 
-    public function sendPush(string $subscription, string|array $payload, ?int $ttl = null, ?PushUrgency $urgency = null, ?string $topic = null, ?string $idempotencyKey = null, ?string $scope = null): PushMessage
+    public function sendPush(string $subscription, string|array $payload, ?int $ttl = null, ?PushUrgency $urgency = null, ?string $topic = null, ?string $idempotencyKey = null, ?string $project = null): PushMessage
     {
-        $push = new SentPush($subscription, $payload, $ttl, $urgency, $topic, $scope);
+        $push = new SentPush($subscription, $payload, $ttl, $urgency, $topic, $project);
 
-        $this->record(new RecordedCall(Operation::SendPush, $scope, $subscription, idempotencyKey: $idempotencyKey, subject: $push));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::SendPush, $project, $subscription, idempotencyKey: $idempotencyKey, subject: $push));
+        $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::SendPush, $bucket, $push);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
@@ -106,7 +106,7 @@ trait FakesPush
         }
 
         if (! isset($this->pushSubscriptions[$bucket][$subscription])) {
-            throw $this->missing('push_subscription_not_found', 'No push subscription with that id exists in this scope.');
+            throw $this->missing('push_subscription_not_found', 'No push subscription with that id exists in this project.');
         }
 
         if (strlen(is_string($payload) ? $payload : (string) json_encode($payload)) > 3000) {
@@ -121,20 +121,20 @@ trait FakesPush
         return $this->remember($idempotencyKey, $fingerprint, $message);
     }
 
-    public function findPush(string $id, ?string $scope = null): ?PushMessage
+    public function findPush(string $id, ?string $project = null): ?PushMessage
     {
-        $this->record(new RecordedCall(Operation::FindPush, $scope, $id));
+        $this->record(new RecordedCall(Operation::FindPush, $project, $id));
 
-        return $this->pushMessages[$this->bucket($scope)][$id] ?? null;
+        return $this->pushMessages[$this->bucket($project)][$id] ?? null;
     }
 
     /**
-     * Store a subscription for a scope (stored first if it is not there) as if a browser
+     * Store a subscription for a project (stored first if it is not there) as if a browser
      * had subscribed earlier, without recording a call.
      */
-    public function seedPushSubscription(string $scope, ?string $ref = null, string $service = 'fcm.googleapis.com'): PushSubscription
+    public function seedPushSubscription(string $project, ?string $ref = null, string $service = 'fcm.googleapis.com'): PushSubscription
     {
-        $bucket = ($this->scope($scope) ?? $this->seedScope($scope))->id;
+        $bucket = ($this->project($project) ?? $this->seedProject($project))->id;
         $stored = new PushSubscription('psb_fake_'.$this->nextNumber(), $service, $this->now(), $ref);
 
         return $this->pushSubscriptions[$bucket][$stored->id] = $stored;

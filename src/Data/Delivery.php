@@ -22,7 +22,7 @@ readonly class Delivery
         public string $target,
         public string $status,
         public DateTimeImmutable $occurredAt,
-        public ?string $scopeId = null,
+        public ?string $projectId = null,
         public int $attempt = 1,
         public ?int $responseCode = null,
         public ?string $error = null,
@@ -42,7 +42,7 @@ readonly class Delivery
             target: Payload::string($data, 'target'),
             status: Payload::string($data, 'status'),
             occurredAt: Payload::date($data, 'occurred_at'),
-            scopeId: Payload::nullableString($data, 'scope_id'),
+            projectId: Payload::nullableString($data, 'project_id'),
             attempt: Payload::int($data, 'attempt'),
             responseCode: Payload::nullableInt($data, 'response_code'),
             error: Payload::nullableString($data, 'error'),
@@ -57,7 +57,7 @@ readonly class Delivery
     {
         return [
             'id' => $this->id,
-            'scope_id' => $this->scopeId,
+            'project_id' => $this->projectId,
             'channel' => $this->channel,
             'subject_type' => $this->subjectType,
             'subject_id' => $this->subjectId,

@@ -7,8 +7,8 @@ namespace Cbox\Relay\Client\Data;
 use DateTimeImmutable;
 
 /**
- * A provider a scope takes webhooks from. Give `$url` to the provider as its webhook
- * address; what it sends there is verified, deduplicated and forwarded to the scope's
+ * A provider a project takes webhooks from. Give `$url` to the provider as its webhook
+ * address; what it sends there is verified, deduplicated and forwarded to the project's
  * own endpoints as the event type `$eventType` (`inbound.<name>`).
  *
  * The provider's signing secret is never given back. `$scheme` and `$status` (`active`
