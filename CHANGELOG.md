@@ -39,6 +39,10 @@ Nothing has been released yet. Everything below is on `main`.
   `remove`), `Relay::suppressions()` (`add`, `list`, `remove`), `Relay::sendMail()`,
   `Relay::mail()`, and a `relay` mail transport for Laravel's mailer that maps a
   Symfony `Email` to the API's structured body and drops headers Relay does not allow.
+- **Held mail.** `Relay::releaseMail()` and `Relay::discardMail()` for a mail the
+  filter quarantined; a mail that is not held throws `RelayConflict` with the type
+  `mail_not_held`.
+- `RelayException::type()`: the name of Relay's problem type, to branch on.
 - **Webhooks from Relay.** The `relay.webhook` route middleware (the `cbox` signature
   scheme, a tolerance window, two secrets during a rotation), `Webhooks\WebhookSignature`,
   `Webhooks\IncomingWebhook` for the `cbox` and CloudEvents envelopes, and typed objects
@@ -54,7 +58,8 @@ Nothing has been released yet. Everything below is on `main`.
   `assertMailSentTimes`, `assertNoMailSent`, `assertPushed`, `assertPushedTimes`,
   `assertNothingPushed`, `assertJudged`, `assertNothingJudged`, `assertInboundErased`,
   `assertInboundRouteRegistered`, `assertSubjectErased`, `assertNoSubjectErased`,
-  `assertSourceRegistered` and `assertNoSourceRegistered`, plus seeders and
+  `assertSourceRegistered`, `assertNoSourceRegistered`, `assertMailReleased` and
+  `assertMailDiscarded`, plus seeders and
   `acceptAnyScope()`.
   `Relay::fake()` makes `publish()` record at once instead of queueing.
 - `Cbox\Relay\Client\Contracts\RelayTransport` with `Http\HttpRelayTransport` over

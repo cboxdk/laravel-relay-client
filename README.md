@@ -86,7 +86,7 @@ Most calls act for one scope. Without one (`forScope()` or `RELAY_SCOPE`) they t
 `RELAY_SCOPE_KEY=true`.
 
 Relay's errors are typed: `RelayUnauthorized`, `RelayForbidden`, `RelayNotFound`,
-`RelayConflict`, `RelayTooLarge`, `RelayInvalid` (`->errors`), `RelayRateLimited`
+`RelayConflict` (`->type()` names Relay's reason, e.g. `mail_not_held`), `RelayTooLarge`, `RelayInvalid` (`->errors`), `RelayRateLimited`
 (`->retryAfter`) and `RelayUnavailable`, all extending `RelayException`.
 
 ### Laravel's mailer

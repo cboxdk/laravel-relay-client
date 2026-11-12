@@ -98,6 +98,32 @@ Relay refuses (422, `RelayInvalid`) a sender whose domain is not a verified send
 domain of the scope, a scope that was paused for bounces or complaints, more than 50
 recipients, 20 attachments or 10 MB, and a header it does not let a sender set.
 
+### A held mail
+
+A mail the filter held has the status `quarantined` and a `reason`. Look at it, then
+decide:
+
+```php
+use Cbox\Relay\Client\Exceptions\RelayConflict;
+
+$mail = Relay::forScope($ref)->releaseMail($id);   // send it after all: 'queued'
+$mail = Relay::forScope($ref)->discardMail($id);   // never send it: 'blocked', its content is removed
+
+try {
+    Relay::forScope($ref)->releaseMail($id);
+} catch (RelayConflict $e) {
+    $e->type() === 'mail_not_held';   // someone decided already, or it was never held
+}
+```
+
+A release queues the mail as if it had not been held; recipients suppressed since are
+left out. Both calls answer the `Mail` and throw `RelayConflict` with the type
+`mail_not_held` when its status is not `quarantined`, so the second of two people
+deciding hears about it. A mail the scope does not have throws `RelayNotFound`.
+
+A held mail nobody decides on keeps its content for 30 days like any other and then
+stays as it is, unsent. That is Relay's retention, not this package's.
+
 ### Headers
 
 A sender may set any `X-` header and `List-Unsubscribe`, `List-Unsubscribe-Post`,

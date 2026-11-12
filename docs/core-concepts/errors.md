@@ -15,7 +15,7 @@ an exception; all of them extend `Cbox\Relay\Client\Exceptions\RelayException`.
 | 401 | `RelayUnauthorized` | bad or revoked key |
 | 403 | `RelayForbidden` | the key lacks an ability |
 | 404 | `RelayNotFound` | every `find()`, `judgment()`, `mail()` and `pushMessage()` returns `null` instead; a missing *scope* (type `scope_not_found`) is still thrown |
-| 409 | `RelayConflict` | idempotency key reused for a different request |
+| 409 | `RelayConflict` | `->type()` says which: `idempotency_key_reused`, `idempotency_in_progress` or `mail_not_held` |
 | 413 | `RelayTooLarge` | the body is too large (an event payload may be 256 KB) |
 | 422 | `RelayInvalid` | `->errors` (`array<string, list<string>>`), `->errorsFor($field)` |
 | 429 | `RelayRateLimited` | `->retryAfter` (seconds, or `null`) |
@@ -55,12 +55,13 @@ contains the key.
 
 ## Branching on the type
 
-Relay's `type` is stable and safe to branch on. It is the last part of
-`$e->problem->type`, for example `missing_ability`, `scope_suspended` or
-`idempotency_in_progress`:
+Relay's `type` is stable and safe to branch on. `$e->type()` gives its name, the last
+part of `$e->problem->type`: `missing_ability`, `scope_suspended`,
+`idempotency_in_progress`, `mail_not_held`. It is `null` when there was no problem
+document.
 
 ```php
-if (str_ends_with($e->problem?->type ?? '', 'scope_suspended')) { … }
+if ($e->type() === 'scope_suspended') { … }
 ```
 
 ## Retrying

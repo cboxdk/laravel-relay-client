@@ -28,7 +28,7 @@ Nothing has been released or tagged.
     `DELETE /v1/push/subscriptions/{id}`, `POST /v1/push`, `GET /v1/push/{id}`
   - `GET|POST /v1/domains`, `GET|DELETE /v1/domains/{id}`, `…/verify`, `…/reputation`
   - `GET|POST /v1/suppressions`, `DELETE /v1/suppressions/{address}`
-  - `POST /v1/mail`, `GET /v1/mail/{id}`
+  - `POST /v1/mail`, `GET /v1/mail/{id}`, `POST /v1/mail/{id}/release`, `…/discard`
 - Error mapping from `application/problem+json`: 401 `RelayUnauthorized`, 403
   `RelayForbidden`, 404 `RelayNotFound`, 409 `RelayConflict`, 413 `RelayTooLarge`, 422
   `RelayInvalid` (field errors), 429 `RelayRateLimited` (`Retry-After` in seconds or as

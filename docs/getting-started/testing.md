@@ -107,6 +107,13 @@ $relay->assertMailSentTimes(1);
 $relay->assertNoMailSent();
 ```
 
+A held mail: `markMail($id, 'quarantined', $reason)` holds one, then
+
+```php
+$relay->assertMailReleased($mail->id);
+$relay->assertMailDiscarded($mail->id);
+```
+
 This covers `Relay::sendMail()` and everything sent through the `relay` mail transport,
 so a mailable is asserted the same way. `sentMail(): list<OutgoingMail>` gives the mails.
 
@@ -249,7 +256,9 @@ promises about the service.
 - A push to a subscription the scope does not have answers 404; a payload over 3000
   bytes 422. Messages stay `queued` until `markPush()`.
 - A mail with every recipient suppressed is `blocked`, otherwise `queued`; it is never
-  `quarantined` and never becomes `sent` without `markMail()`. Mail without content or
+  `quarantined` and never becomes `sent` without `markMail()`. Releasing or discarding
+  a mail that is not `quarantined` answers 409 `mail_not_held`; a discard keeps the
+  recorded `OutgoingMail`, since the fake has no content to remove. Mail without content or
   recipients, with more than 50 recipients or 20 attachments, or with a header outside
   the allowed set answers 422. Size is not checked.
 - Verifying a domain or a domain route finds its DNS record unless `dnsPublished(false)`.
