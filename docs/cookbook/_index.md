@@ -8,3 +8,5 @@ weight: 30
 
 - [Register workspaces as scopes](register-workspaces-as-scopes.md)
 - [Page through the delivery log](page-through-the-delivery-log.md)
+- [Offer webhooks to your customers](offer-webhooks-to-your-customers.md)
+- [React to bounces and complaints](react-to-bounces-and-complaints.md)

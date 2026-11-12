@@ -1,17 +1,26 @@
 # Cbox Relay client
 
 The Cbox Relay client for Laravel. Cbox Relay delivers webhooks, mail and push for Cbox
-products; this package is how a Laravel app talks to its API. It covers what the service
-has today:
+products; this package is how a Laravel app talks to its API.
 
-- **Who am I.** `Relay::whoami()`: the organization, the environment, the key's abilities.
-- **Scopes.** `Relay::scopes()->put()`, `find()`, `list()`: register each of your own
-  workspaces with Relay under your own id, idempotently.
-- **The delivery log.** `Relay::deliveries()`: filtered and cursor-paginated.
-- **A fake.** `Relay::fake()` keeps all of it in memory for your tests.
+- **Publish events.** `Relay::publish()` queues a job that calls Relay after commit and
+  retries it, with an idempotency key so a retry publishes once.
+- **Webhook endpoints.** Declare event types; register, pause, rotate, ping and replay
+  endpoints; read events and what became of each delivery.
+- **Mail.** Sending domains, the suppression list, `Relay::sendMail()`, and a `relay`
+  mail transport so `MAIL_MAILER=relay` works.
+- **Web Push.** The scope's key, browser subscriptions, `Relay::push()`, and a Laravel
+  notification channel.
+- **Inbound mail.** Claim addresses, read received mail, erase it.
+- **The judge.** Score a mail or a template without sending it.
+- **Webhooks from Relay.** A `relay.webhook` middleware that verifies a delivery, and
+  typed objects for Relay's own events.
+- **Scopes, whoami, the delivery log**, typed errors, and **a fake** for your tests.
 
-Publishing events and sending mail are **not built yet**: the service does not have them
-yet either. See [BUILD-STATUS.md](BUILD-STATUS.md).
+The client covers Relay's API. What the service behind it runs is Relay's own: its API
+guides say the mail servers are not running yet, so today no mail leaves Relay and none
+arrives. See Relay's own status, and [BUILD-STATUS.md](BUILD-STATUS.md) for what this
+package has and has not verified.
 
 Documentation: [docs/index.md](docs/index.md). Start with the
 [quickstart](docs/quickstart.md).
@@ -25,52 +34,90 @@ composer require cboxdk/laravel-relay-client
 ```dotenv
 RELAY_URL=https://api.cboxrelay.com
 RELAY_KEY=rlk_live_…
+RELAY_SCOPE=workspace-42        # optional: the scope every call acts for
 ```
 
-With either empty every call throws `RelayNotConfigured`. Publish the config with
-`php artisan vendor:publish --tag=relay-config` for the timeouts and the default scope
-(`config/relay.php`).
+With `RELAY_URL` or `RELAY_KEY` empty every call throws `RelayNotConfigured`. Publish
+the config with `php artisan vendor:publish --tag=relay-config`; every key is in the
+[configuration reference](docs/configuration/reference.md).
+
+`Relay::publish()` needs a queue worker.
 
 ## Use
 
 ```php
-use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Facades\Relay;
 
-Relay::whoami()->can('scopes:manage');
-
 // One scope per workspace, under your own id. Safe to call every time.
-$scope = Relay::scopes()->put($workspace->id, name: $workspace->name, settings: ['region' => 'eu']);
-$scope->created;   // true the first time
+Relay::scopes()->put($workspace->id, name: $workspace->name);
 
-Relay::scopes()->find($workspace->id);          // ?Scope
-Relay::scopes()->list(limit: 50, cursor: null); // Page<Scope>
+$relay = Relay::forScope($workspace->id);
 
-// The log of one workspace, with an organization key acting for it.
-$page = Relay::forScope($workspace->id)->deliveries(new DeliveryFilter(status: 'failed'), limit: 20);
+// Webhooks out
+$relay->eventTypes()->declare(['order.paid', 'order.refunded']);
+$endpoint = $relay->endpoints()->register('https://customer.example/hooks', ['order.*']);
+$endpoint->secret;   // given once
 
-foreach ($page as $delivery) {
-    $delivery->target; $delivery->responseCode; $delivery->occurredAt;
-}
+$relay->publish('order.paid', ['id' => $order->id]);              // queued, after commit, retried
+$relay->publishNow('order.paid', ['id' => $order->id])->id;       // one HTTP call, now
 
-$page->nextCursor;   // pass back as cursor: for the next page, null on the last
+// Mail
+$relay->sendMail(new OutgoingMail(new MailAddress('hello@acme.dk', 'Acme'), ['ann@example.com'], 'Your order', text: 'Thanks.'));
+
+// Web Push
+$relay->push($subscriptionId, ['title' => 'Your order shipped']);
+
+// The judge
+$relay->judge(html: $html, subject: 'Welcome')->score('phishing');
+
+// Inbound mail
+$relay->inbound()->list();
 ```
 
+Most calls act for one scope. Without one (`forScope()` or `RELAY_SCOPE`) they throw
+`RelayScopeRequired` before anything is sent; with a scope key, set
+`RELAY_SCOPE_KEY=true`.
+
 Relay's errors are typed: `RelayUnauthorized`, `RelayForbidden`, `RelayNotFound`,
-`RelayConflict`, `RelayInvalid` (`->errors`), `RelayRateLimited` (`->retryAfter`) and
-`RelayUnavailable`, all extending `RelayException`.
+`RelayConflict`, `RelayTooLarge`, `RelayInvalid` (`->errors`), `RelayRateLimited`
+(`->retryAfter`) and `RelayUnavailable`, all extending `RelayException`.
+
+### Laravel's mailer
+
+```php
+// config/mail.php
+'mailers' => ['relay' => ['transport' => 'relay']],
+```
+
+```dotenv
+MAIL_MAILER=relay
+```
+
+### Receiving Relay's webhooks
+
+```php
+Route::post('/hooks/relay', function (Request $request) {
+    $event = IncomingWebhook::from($request)->event();   // MailBounced, PushExpired, …
+
+    return response()->noContent();
+})->middleware('relay.webhook');   // verifies X-Cbox-Signature with RELAY_WEBHOOK_SECRET
+```
 
 ## Testing
 
 ```php
 use Cbox\Relay\Client\Facades\Relay;
 
-$relay = Relay::fake();
+$relay = Relay::fake()->acceptAnyScope();   // publish() records at once: no queue, no HTTP
 
-$this->post('/workspaces', ['name' => 'Acme']);
+$this->post("/orders/{$order->id}/pay");
 
-$relay->assertScopePut($workspace->id, fn ($call) => $call->name === 'Acme');
+$relay->assertPublished('order.paid', fn (NewEvent $event) => $event->payload['id'] === $order->id);
+$relay->assertMailSent(fn (OutgoingMail $mail) => $mail->to === ['ann@example.com']);
+$relay->assertPushed($subscriptionId);
 ```
+
+See [Testing](docs/getting-started/testing.md).
 
 ## Development
 

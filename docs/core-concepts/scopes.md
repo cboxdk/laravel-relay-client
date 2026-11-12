@@ -56,11 +56,11 @@ while (true) {
 |----------|------|-|
 | `id` | `string` | Relay's id, `scp_…` |
 | `externalRef` | `string` | your id |
-| `name` | `string` | |
+| `name` | `?string` | null when the scope was put without one |
 | `settings` | `array<string, mixed>` | the JSON object you stored |
 | `createdAt` | `DateTimeImmutable` | |
 | `suspendedAt` | `?DateTimeImmutable` | `suspended()` tells whether it is set |
 | `created` | `bool` | only true on the result of the `put` that created it |
 
 The client cannot suspend, delete or otherwise change a scope beyond what `put` does:
-the API has no such endpoints yet.
+the API has no such endpoints.

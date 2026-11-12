@@ -8,39 +8,59 @@ weight: 21
 
 ```
 Facades\Relay ─► Relay (manager) ─► Contracts\RelayTransport ─┬─ Http\HttpRelayTransport ─► Cbox Relay
-                    └─ Scopes                                  └─ Testing\FakeRelay (in memory)
+                   │                                           └─ Testing\FakeRelay (in memory)
+                   ├─ Scopes, EventTypes, Endpoints, Events, InboundRoutes, Inbound,
+                   │  PushSubscriptions, Domains, Suppressions
+                   └─ Contracts\EventPublisher ─┬─ Publishing\QueuedEventPublisher ─► Jobs\PublishEvent ─► transport
+                                                └─ Publishing\ImmediateEventPublisher ─► transport
+
+Mail\RelayMailTransport ──────────┐
+Notifications\RelayWebPushChannel ┴─► Relay (manager)
+
+Http\Middleware\VerifyRelayWebhook ─► Webhooks\WebhookSignature, Webhooks\IncomingWebhook   (no transport: Relay calls you)
 ```
 
 ## The contract
 
-`Cbox\Relay\Client\Contracts\RelayTransport` has one method per endpoint:
+`Cbox\Relay\Client\Contracts\RelayTransport` has one method per endpoint of the API,
+about fifty of them: `whoami`, `putScope`, `publishEvent`, `createEndpoint`, `judge`,
+`sendPush`, `sendMail` and so on. Each takes typed arguments and a last
+`?string $scope`, which becomes the `Relay-Scope` header, and returns a typed value.
+A `find…` method answers `null` for a 404.
 
-```php
-public function whoami(?string $scope = null): Identity;
-public function putScope(string $externalRef, ?string $name = null, ?array $settings = null, ?string $idempotencyKey = null, ?string $scope = null): Scope;
-public function findScope(string $ref, ?string $scope = null): ?Scope;
-public function listScopes(?int $limit = null, ?string $cursor = null, ?string $scope = null): Page;
-public function listDeliveries(DeliveryFilter $filter = new DeliveryFilter, ?int $limit = null, ?string $cursor = null, ?string $scope = null): Page;
-```
-
-`$scope` is the scope a call acts for; it becomes the `Relay-Scope` header.
+The contract passes on what it is given. It does not check that a scope is set.
 
 ## The manager
 
-`Cbox\Relay\Client\Relay` holds a transport and an optional scope and forwards to the
-contract. `scopes()` returns a `Scopes` object with `put`, `find` and `list`.
+`Cbox\Relay\Client\Relay` holds a transport, the scope it acts for and a publisher, and
+forwards to the contract. Groups of calls live on small objects it returns:
+`scopes()`, `eventTypes()`, `endpoints()`, `events()`, `inboundRoutes()`, `inbound()`,
+`pushSubscriptions()`, `domains()` and `suppressions()`.
+
 `forScope()` and `withoutScope()` return a new manager; the one you called them on is
 unchanged. The container builds a new manager on every resolution, on whatever
 transport is bound at that moment.
 
+The manager is where a missing scope is caught: see
+[Authentication](authentication.md#calls-that-need-a-scope).
+
+## Publishing
+
+`Relay::publish()` hands the event to `Contracts\EventPublisher`. The default puts a
+`Jobs\PublishEvent` job on the queue; see [Publishing events](publishing-events.md).
+
 ## Value objects
 
-Everything the client returns is a typed, readonly object in `Cbox\Relay\Client\Data`:
-`Identity`, `Scope`, `Delivery`, `Page`, and the smaller `Organization`, `ApiKey`,
-`ScopeReference`, `Environment` and `Problem`. Arrays exist at two places only: where a
-JSON body is read (`fromArray`) and where one is written (`toArray`). `Scope::$settings`
-is the one free-form bag, because it is a JSON object whose shape belongs to your
-product.
+Everything the client returns is a typed, readonly object in `Cbox\Relay\Client\Data`.
+Arrays exist at two places only: where a JSON body is read (`fromArray`) and where one
+is written (`toArray`). The free-form bags are the ones whose shape belongs to your
+product: `Scope::$settings`, an event's payload, a push payload.
+
+What goes in is typed with enums where the API has a fixed set (`Envelope`,
+`SignatureScheme`, `InboundRouteType`, `PushUrgency`, `SuppressionReason`, `JudgeKind`,
+`Direction`). What comes out keeps statuses and kinds as Relay's own strings
+(`$mail->status === 'queued'`): Relay adds values over time, and a client that refused
+an unknown one would break on a new status.
 
 A success answer the client cannot read (a missing id, a date that is not one) throws
 `RelayMalformedResponse` rather than producing a half-filled object.
@@ -48,4 +68,5 @@ A success answer the client cannot read (a missing id, a date that is not one) t
 ## What one call is
 
 One method call is one HTTP request with the configured `timeout` and
-`connect_timeout`. Nothing is retried, cached or queued by this package.
+`connect_timeout`. Nothing is retried or cached, with one exception: the queued publish
+job retries on its own.

@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install the package, set RELAY_URL and RELAY_KEY, and what each config key does.
+description: Install the package, set RELAY_URL and RELAY_KEY, run a queue worker, and choose how the scope is named.
 weight: 11
 ---
 
@@ -25,21 +25,35 @@ environment; `Relay::whoami()->environment` tells which one a key is on.
 With `RELAY_URL` or `RELAY_KEY` empty, every call throws
 `Cbox\Relay\Client\Exceptions\RelayNotConfigured` and nothing is sent.
 
+## A queue worker
+
+`Relay::publish()` puts a job on the queue; a worker must be running for the events to
+reach Relay. By default the job goes on the app's default connection and queue; set
+`RELAY_PUBLISH_CONNECTION` and `RELAY_PUBLISH_QUEUE` to move it. See
+[Publishing events](../core-concepts/publishing-events.md).
+
+## Scope
+
+Most calls act for one scope. With an organization key, name it per call with
+`Relay::forScope($ref)` or once with `RELAY_SCOPE`. With a scope key, set
+`RELAY_SCOPE_KEY=true`. See [Authentication](../core-concepts/authentication.md).
+
 ## Config
 
 ```bash
 php artisan vendor:publish --tag=relay-config
 ```
 
-| Key | Env | Default | What it is |
-|-----|-----|---------|------------|
-| `relay.url` | `RELAY_URL` | none | The Relay API. A trailing slash is ignored. |
-| `relay.key` | `RELAY_KEY` | none | The API key, sent as `Authorization: Bearer …`. |
-| `relay.timeout` | `RELAY_TIMEOUT` | `5` | Seconds a whole call may take. |
-| `relay.connect_timeout` | `RELAY_CONNECT_TIMEOUT` | `2` | Seconds connecting may take. |
-| `relay.scope` | `RELAY_SCOPE` | none | Optional default scope: every call acts for it. See [Authentication](../core-concepts/authentication.md). |
+Every key is in the [configuration reference](../configuration/reference.md).
 
-A timeout that is not a positive number falls back to its default.
+## Mail and webhooks
+
+Both are optional:
+
+- To send your app's mail through Relay, add a `relay` mailer:
+  [Outbound mail](../core-concepts/outbound-mail.md#the-mail-transport).
+- To receive Relay's webhooks, set `RELAY_WEBHOOK_SECRET` and use the `relay.webhook`
+  middleware: [Webhooks from Relay](../core-concepts/incoming-webhooks.md).
 
 ## Check it
 

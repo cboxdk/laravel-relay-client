@@ -34,8 +34,8 @@ public function index(Request $request, Workspace $workspace, Relay $relay)
 There is no "previous" cursor and no total: keep the cursors you have seen if you need
 to go back.
 
-Against the real service the log is empty until Relay delivers something, which it does
-not do yet. Build the screen against the fake:
+The fake's log holds what you seed; nothing it records adds a line by itself. Build the
+screen against it:
 
 ```php
 $relay = Relay::fake();

@@ -8,10 +8,13 @@ weight: 24
 
 The delivery log has one line per attempt to deliver one thing to one target.
 
-Relay does not deliver anything yet: publishing events and sending mail come with later
-milestones of the service. Until then the log of a real Relay is empty. The API is here
-so the code that reads it can be written and tested against the
-[fake](../getting-started/testing.md) now.
+It covers every channel: `webhook` (events out), `webhook_in`, `mail_in`, `mail_out`,
+`push` and `realtime`. Statuses are `delivered`, `accepted`, `retrying` and `failed`.
+Both are Relay's own strings and are passed through as they are. Which channels really
+produce lines depends on what the service runs at the moment: see Relay's own status.
+
+The fake does not write the log by itself: a publish, a mail or a push recorded on
+`FakeRelay` adds no line. The log holds what the test [seeded](../getting-started/testing.md).
 
 ## Read
 

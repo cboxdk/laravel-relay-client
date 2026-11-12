@@ -14,6 +14,10 @@ Areas of particular interest for this package:
 
 - The API key (`RELAY_KEY`): it must never appear in a log line or an exception message.
   The package puts it in the `Authorization` header and nowhere else.
+- The `relay.webhook` middleware and `Webhooks\WebhookSignature`: anything that lets a
+  request through without a valid signature, or with a timestamp outside the tolerance.
+- The `relay` mail transport: a header or recipient reaching Relay that the mail did
+  not carry, or a control header (`X-Relay-Scope`, `X-Relay-Idempotency-Key`) passed on.
 - The `Relay-Scope` header: an organization key acting for one of its scopes. A value
   taken from user input lets that user pick the scope. See
   [docs/security/threat-model.md](docs/security/threat-model.md).
