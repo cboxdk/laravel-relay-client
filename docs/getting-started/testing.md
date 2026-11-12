@@ -227,6 +227,31 @@ A route behind `relay.webhook` is tested with a real signature, not with the fak
 `WebhookSignature::header($body, $secret)` makes the header. See
 [Webhooks from Relay](../core-concepts/incoming-webhooks.md#testing-your-route).
 
+The package's own route is tested the same way. To assert on the Laravel events, fake
+them: `Event::fake([MailBounced::class])`, post a signed body to `/relay/webhook`, then
+`Event::assertDispatched(MailBounced::class)`.
+
+## The local store and connections
+
+`Relay::fake()` puts every [connection](../core-concepts/connections.md) on the one
+fake, so `Relay::connection('billing')->sendMail(…)` records there.
+
+To see what [the local store](../core-concepts/delivery-status.md) would keep without a
+database, bind the in-memory one:
+
+```php
+use Cbox\Relay\Client\Contracts\MessageStore;
+use Cbox\Relay\Client\Testing\FakeMessageStore;
+
+$store = new FakeMessageStore;
+$this->app->instance(MessageStore::class, $store);
+
+// … send a mail, post a webhook …
+
+$store->assertSent($mail->id);
+$store->assertEventKept('mail.delivered');
+```
+
 ## Where the fake decides
 
 Relay's API description leaves some things open, and a fake cannot do everything the

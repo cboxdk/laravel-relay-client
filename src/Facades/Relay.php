@@ -9,7 +9,9 @@ use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Publishing\ImmediateEventPublisher;
 use Cbox\Relay\Client\Relay as RelayManager;
 use Cbox\Relay\Client\Testing\FakeRelay;
+use Cbox\Relay\Client\Webhooks\WebhookRoutes;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Routing\Router;
 use Illuminate\Support\Facades\Facade;
 use LogicException;
 
@@ -39,6 +41,8 @@ use LogicException;
  * @method static ?\Cbox\Relay\Client\Data\Mail mail(string $id)
  * @method static \Cbox\Relay\Client\Data\Mail releaseMail(string $id)
  * @method static \Cbox\Relay\Client\Data\Mail discardMail(string $id)
+ * @method static \Cbox\Relay\Client\Relay connection(string $name)
+ * @method static ?string connectionName()
  * @method static \Cbox\Relay\Client\Relay forProject(string $ref)
  * @method static \Cbox\Relay\Client\Relay withoutProject()
  * @method static ?string project()
@@ -70,6 +74,23 @@ class Relay extends Facade
         static::clearResolvedInstance(RelayManager::class);
 
         return $fake;
+    }
+
+    /**
+     * Register the package's webhook endpoint from a routes file: `POST {path}` for the
+     * default connection and `POST {path}/{connection}` for a named one. Each verified
+     * delivery is handled once and dispatched as a Laravel event
+     * (`Webhooks\Received\MailBounced`, …; every one implements `Contracts\ReceivedWebhook`).
+     */
+    public static function webhookRoutes(string $path = WebhookRoutes::DEFAULT_PATH): void
+    {
+        $app = static::getFacadeApplication();
+
+        if (! $app instanceof Application) {
+            throw new LogicException('Relay::webhookRoutes() needs a booted application: call it from a routes file.');
+        }
+
+        WebhookRoutes::register($app->make(Router::class), $path);
     }
 
     protected static function getFacadeAccessor(): string

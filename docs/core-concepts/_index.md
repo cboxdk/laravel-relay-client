@@ -19,3 +19,5 @@ weight: 20
 - [Outbound mail](outbound-mail.md): domains, suppressions, sending and the mail transport
 - [Webhooks from Relay](incoming-webhooks.md): verify a delivery and read Relay's own events
 - [Inbound webhooks](inbound-webhooks.md): sources that take a provider's webhooks for a project
+- [Local delivery status](delivery-status.md): the optional store of sent mail and its events
+- [Connections](connections.md): more than one key from one app

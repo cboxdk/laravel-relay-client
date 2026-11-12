@@ -67,6 +67,69 @@ Each endpoint has its own secret. If every project has an endpoint at your app, 
 own `Contracts\WebhookSecrets`; see
 [Extension points](../extension-points/_index.md#webhook-secrets-per-request).
 
+## The package's route and Laravel events
+
+Instead of a route of your own, let the package register one. It is off until you ask:
+
+```php
+// routes/web.php (or any routes file)
+use Cbox\Relay\Client\Facades\Relay;
+
+Relay::webhookRoutes();                 // POST /relay/webhook
+Relay::webhookRoutes('hooks/relay');    // or at a path of your choice
+```
+
+or, with no routes file, `RELAY_WEBHOOK_ROUTE=relay/webhook`. The route runs the
+`relay.webhook` middleware and nothing else: no session and no CSRF check, so it needs no
+exception in your CSRF list.
+
+Each verified delivery is dispatched as one Laravel event:
+
+| Delivery | Laravel event | `$event->event` |
+|----------|---------------|-----------------|
+| `mail.received` | `Webhooks\Received\MailReceived` | `Webhooks\Events\MailReceived` |
+| `mail.accepted`, `mail.blocked` | `Received\MailAccepted`, `Received\MailBlocked` | the typed data |
+| `mail.delivered`, `mail.bounced`, `mail.complained`, `mail.clicked` | `Received\MailDelivered`, `Received\MailBounced`, `Received\MailComplained`, `Received\MailClicked` | the typed data |
+| `push.delivered`, `push.expired` | `Received\PushDelivered`, `Received\PushExpired` | the typed data |
+| `endpoint.disabled`, `project.outbound_paused` | `Received\EndpointDisabled`, `Received\ProjectOutboundPaused` | the typed data |
+| anything else | `Received\OtherEventReceived` | none: read `$event->webhook->type` and `->data` |
+
+```php
+use Cbox\Relay\Client\Webhooks\Received\MailBounced;
+
+Event::listen(function (MailBounced $event): void {
+    $event->event->recipient;        // typed: what the event says
+    $event->webhook->deliveryId;     // the delivery: ids, sequence, when
+    $event->connection;              // the Relay connection, null for the default
+});
+```
+
+Every one implements `Contracts\ReceivedWebhook`; listen for that interface to hear all
+of them. "Anything else" is an event your own product published and subscribed to, or a
+type Relay added after this version of the package.
+
+### Once, and what Relay is told
+
+- **A delivery is handled once.** Its delivery id is remembered in the cache
+  (`relay.webhook.cache`, for `relay.webhook.dedupe` seconds). Relay's retry or replay of
+  the same delivery answers `200` and dispatches nothing.
+- **The answer is `204` only after your synchronous listeners have returned.** A
+  listener that throws makes the answer `500` and the delivery is forgotten, so Relay
+  retries it and it is handled as new. Listeners therefore run again for a delivery that
+  half-failed: make them safe to repeat.
+- **A listener that implements `ShouldQueue` has only been queued by then.** Relay is
+  told `204` as soon as the job is on the queue; whether the job succeeds is your queue's
+  business. That is the right choice for slow work: Relay waits a few seconds for an
+  answer, not minutes.
+- **Two requests with the same delivery at the same moment:** the second answers `409`
+  and Relay tries it again later.
+- **One of Relay's own events with data that is not what Relay sends** answers `400`.
+- With [the local store](delivery-status.md) on, the event is written before the
+  listeners hear it.
+
+A named [connection](connections.md) has its own address, `POST /relay/webhook/{name}`,
+verified with that connection's secret.
+
 ## The signature
 
 `X-Cbox-Signature: t=<unix>,v1=<hex>`, where the hex is HMAC-SHA256 over

@@ -12,6 +12,13 @@ composer require cboxdk/laravel-relay-client
 
 The service provider and the `Relay` facade alias are discovered automatically.
 
+```bash
+php artisan relay:install   # publishes config/relay.php and lists what to set
+php artisan relay:doctor    # checks the setup once the keys are in place
+```
+
+See [Commands](commands.md).
+
 ## Environment
 
 ```dotenv

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\Relay\Client;
 
+use Cbox\Relay\Client\Exceptions\RelayNotConfigured;
+use Cbox\Relay\Client\Support\ConnectionConfig;
 use Illuminate\Contracts\Config\Repository;
 
 /**
@@ -13,6 +15,65 @@ use Illuminate\Contracts\Config\Repository;
 class RelayConfig
 {
     public function __construct(private readonly Repository $config) {}
+
+    /** The name of the connection the top level of `config/relay.php` describes. */
+    public const string DEFAULT_CONNECTION = 'default';
+
+    /**
+     * One connection by name; null or `default` is the top level of the config. A named
+     * connection takes its own key, project and webhook secrets, and falls back to the
+     * top level for the URL and the timeouts it does not set.
+     *
+     * @throws RelayNotConfigured when no connection has that name
+     */
+    public function connection(?string $name = null): ConnectionConfig
+    {
+        if ($name === null || $name === self::DEFAULT_CONNECTION) {
+            return new ConnectionConfig(self::DEFAULT_CONNECTION, $this->url(), $this->key(), $this->project(), $this->projectKey(), $this->timeout(), $this->connectTimeout(), $this->webhookSecrets());
+        }
+
+        $base = "relay.connections.{$name}";
+
+        if (! is_array($this->config->get($base))) {
+            throw new RelayNotConfigured("No Relay connection is named '{$name}': add it under relay.connections.");
+        }
+
+        $url = rtrim($this->string("{$base}.url"), '/');
+        $project = $this->string("{$base}.project");
+
+        return new ConnectionConfig(
+            $name,
+            $url === '' ? $this->url() : $url,
+            $this->string("{$base}.key"),
+            $project === '' ? null : $project,
+            $this->flag("{$base}.project_key"),
+            $this->seconds("{$base}.timeout", $this->timeout()),
+            $this->seconds("{$base}.connect_timeout", $this->connectTimeout()),
+            array_values(array_filter(
+                [$this->string("{$base}.webhook.secret"), $this->string("{$base}.webhook.previous_secret")],
+                static fn (string $secret): bool => $secret !== '',
+            )),
+        );
+    }
+
+    /**
+     * Every connection's name, `default` first.
+     *
+     * @return list<string>
+     */
+    public function connectionNames(): array
+    {
+        $connections = $this->config->get('relay.connections');
+        $names = [self::DEFAULT_CONNECTION];
+
+        foreach (is_array($connections) ? array_keys($connections) : [] as $name) {
+            if (is_string($name) && $name !== self::DEFAULT_CONNECTION) {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
+    }
 
     public function configured(): bool
     {
@@ -131,6 +192,52 @@ class RelayConfig
         $tolerance = $this->config->get('relay.webhook.tolerance');
 
         return is_numeric($tolerance) && (int) $tolerance > 0 ? (int) $tolerance : 300;
+    }
+
+    /** The path of the package's own webhook route (`relay.webhook.route`); null when it is not registered from config. */
+    public function webhookRoute(): ?string
+    {
+        $path = trim($this->string('relay.webhook.route'), '/');
+
+        return $path === '' ? null : $path;
+    }
+
+    /** The cache store deliveries are remembered in, so one is handled once; null for the app's default. */
+    public function webhookCacheStore(): ?string
+    {
+        $store = $this->string('relay.webhook.cache');
+
+        return $store === '' ? null : $store;
+    }
+
+    /** Seconds a handled delivery is remembered. Relay retries a delivery for about a day. */
+    public function webhookDedupeSeconds(): int
+    {
+        $seconds = $this->config->get('relay.webhook.dedupe');
+
+        return is_numeric($seconds) && (int) $seconds > 0 ? (int) $seconds : 172800;
+    }
+
+    /** Whether sent mail and its events are kept in this app's own database (`relay.store.enabled`). */
+    public function storeEnabled(): bool
+    {
+        return $this->flag('relay.store.enabled');
+    }
+
+    /** The database connection the store's tables are on; null for the app's default. */
+    public function storeConnection(): ?string
+    {
+        $connection = $this->string('relay.store.connection');
+
+        return $connection === '' ? null : $connection;
+    }
+
+    /** How a mail's subject is kept: `hash` (a SHA-256, the default), `plain`, or `none`. */
+    public function storeSubject(): string
+    {
+        $mode = $this->string('relay.store.subject');
+
+        return in_array($mode, ['plain', 'none'], true) ? $mode : 'hash';
     }
 
     private function flag(string $key): bool

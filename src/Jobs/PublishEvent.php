@@ -8,6 +8,7 @@ use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\NewEvent;
 use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Exceptions\RelayRateLimited;
+use Cbox\Relay\Client\Relay;
 use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -46,6 +47,7 @@ class PublishEvent implements ShouldQueue
         int $tries = 5,
         public array $backoff = [10, 30, 120, 600],
         public ?string $subject = null,
+        public ?string $relayConnection = null,
     ) {
         $this->tries = max(1, $tries);
     }
@@ -53,7 +55,7 @@ class PublishEvent implements ShouldQueue
     /**
      * @param  list<int>  $backoff
      */
-    public static function for(NewEvent $event, ?string $project = null, int $tries = 5, array $backoff = [10, 30, 120, 600]): self
+    public static function for(NewEvent $event, ?string $project = null, int $tries = 5, array $backoff = [10, 30, 120, 600], ?string $relayConnection = null): self
     {
         return new self(
             $event->type,
@@ -64,6 +66,7 @@ class PublishEvent implements ShouldQueue
             $tries,
             $backoff,
             $event->subject,
+            $relayConnection,
         );
     }
 
@@ -73,8 +76,15 @@ class PublishEvent implements ShouldQueue
         return 'pub_'.bin2hex(random_bytes(16));
     }
 
-    public function handle(RelayTransport $relay): void
+    /**
+     * @param  Relay|null  $manager  the container's client, to reach a named connection's transport
+     */
+    public function handle(RelayTransport $relay, ?Relay $manager = null): void
     {
+        if ($this->relayConnection !== null && $manager !== null) {
+            $relay = $manager->connection($this->relayConnection)->transport();
+        }
+
         try {
             $relay->publishEvent($this->event(), $this->project);
         } catch (RelayRateLimited $e) {

@@ -45,6 +45,16 @@ organizations and projects, and stores data is the service's own concern.
   allowed set never leave your app, and the three control headers (`X-Relay-Project`,
   `X-Relay-Idempotency-Key`, `X-Relay-Track-Clicks`) are never passed on.
 
+- **The package's webhook route handles a delivery once.** It runs only the verifying
+  middleware (no session, no CSRF exemption to maintain), remembers the delivery id in
+  the cache, and a named connection's deliveries are verified with that connection's
+  secrets alone. A connection name that does not exist has no secrets and is refused.
+- **The local store is off by default and keeps a subject as a hash unless told
+  otherwise.** When on, it holds recipients' addresses (on event rows) and whatever
+  Relay's events carry, in your database, with no retention of its own: that data is
+  yours to protect and to delete.
+- **`relay:doctor` and `relay:ping` never print a key or a secret.**
+
 ## What the client does not do
 
 - **It does not decide who may see which project.** With an organization key,

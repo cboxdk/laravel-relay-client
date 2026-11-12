@@ -16,8 +16,14 @@ products; this package is how a Laravel app talks to its API.
 - **The judge.** Score a mail or a template without sending it.
 - **Inbound webhooks.** Sources that take a provider's webhooks for a project.
 - **Erasure.** Publish with a `subject`; `Relay::eraseSubject()` forgets that person.
-- **Webhooks from Relay.** A `relay.webhook` middleware that verifies a delivery, and
-  typed objects for Relay's own events.
+- **Webhooks from Relay.** A `relay.webhook` middleware that verifies a delivery, typed
+  objects for Relay's own events, and an opt-in route (`Relay::webhookRoutes()`) that
+  handles each delivery once and dispatches a Laravel event for it.
+- **Know what happened to a mail.** An optional local store: a row per sent mail and per
+  event about it, kept up to date from the webhooks. Off by default.
+- **Commands.** `relay:install`, `relay:doctor`, `relay:ping`, `relay:tail`, and a health
+  check for cboxdk/laravel-health.
+- **Several connections.** More than one key from one app: `Relay::connection('billing')`.
 - **Projects, whoami, the delivery log**, typed errors, and **a fake** for your tests.
 
 The client covers Relay's API. Relay's mail servers run since 12 November 2026: mail sent

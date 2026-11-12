@@ -10,3 +10,4 @@ weight: 30
 - [Page through the delivery log](page-through-the-delivery-log.md)
 - [Offer webhooks to your customers](offer-webhooks-to-your-customers.md)
 - [React to bounces and complaints](react-to-bounces-and-complaints.md)
+- [Know what happened to a mail](know-what-happened-to-a-mail.md)
