@@ -2,7 +2,7 @@
 
 What this package does today, and what it does not. It is the client for Cbox Relay's
 v1 API as described in the service's `docs/openapi/relay.v1.yaml` and its API guides.
-Nothing has been released or tagged.
+Released as v0.1.0. It has not been run against a live Relay.
 
 ## Built and tested
 

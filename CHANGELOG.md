@@ -5,7 +5,9 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
-Nothing has been released yet. Everything below is on `main`.
+## [0.1.0] - 2026-11-12
+
+The first release.
 
 ### Added
 
@@ -81,4 +83,5 @@ Nothing has been released yet. Everything below is on `main`.
   `illuminate/notifications`, `illuminate/routing`, `symfony/mailer` and `symfony/mime`
   besides `illuminate/contracts`, `illuminate/http` and `illuminate/support`.
 
-[Unreleased]: https://github.com/cboxdk/laravel-relay-client/commits/main
+[Unreleased]: https://github.com/cboxdk/laravel-relay-client/compare/v0.1.0...main
+[0.1.0]: https://github.com/cboxdk/laravel-relay-client/releases/tag/v0.1.0
