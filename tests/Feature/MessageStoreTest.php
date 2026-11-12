@@ -82,18 +82,21 @@ it('brings a mail up to date from its events, once per delivery', function (): v
         // A delivery after the bounce does not make the mail look fine again.
         ->and($store->recordEvent(mailEvent('mail.delivered', ['id' => $mail->id, 'recipient' => 'cy@example.com'], 'whd_3')))->toBeTrue()
         ->and($store->recordEvent(mailEvent('mail.clicked', ['id' => $mail->id, 'url' => 'https://acme.dk'], 'whd_4')))->toBeTrue()
+        // An open is counted; a delay is kept and changes nothing about the status.
+        ->and($store->recordEvent(mailEvent('mail.opened', ['id' => $mail->id, 'opened_at' => '2026-11-12T10:00:00+00:00'], 'whd_7')))->toBeTrue()
+        ->and($store->recordEvent(mailEvent('mail.deferred', ['id' => $mail->id, 'recipient' => 'cy@example.com', 'status' => '4.7.1'], 'whd_8')))->toBeTrue()
         // Not about an outbound mail, and a mail event with no id: accepted, nothing kept.
         ->and($store->recordEvent(mailEvent('push.delivered', ['id' => 'psh_1'], 'whd_5')))->toBeTrue()
         ->and($store->recordEvent(mailEvent('mail.delivered', [], 'whd_6')))->toBeTrue();
 
     $message = RelayMessage::query()->findOrFail($mail->id);
 
-    expect($message->only(['status', 'delivered', 'bounced', 'complained', 'clicked']))->toBe(['status' => 'bounced', 'delivered' => 2, 'bounced' => 1, 'complained' => 0, 'clicked' => 1])
+    expect($message->only(['status', 'delivered', 'bounced', 'complained', 'clicked', 'opened']))->toBe(['status' => 'bounced', 'delivered' => 2, 'bounced' => 1, 'complained' => 0, 'clicked' => 1, 'opened' => 1])
         ->and($message->last_event_at?->toIso8601String())->toBe('2026-11-12T10:00:00+00:00')
-        ->and($message->events->pluck('type')->all())->toBe(['mail.delivered', 'mail.bounced', 'mail.delivered', 'mail.clicked'])
+        ->and($message->events->pluck('type')->all())->toBe(['mail.delivered', 'mail.bounced', 'mail.delivered', 'mail.clicked', 'mail.opened', 'mail.deferred'])
         ->and($message->events->first()?->recipient)->toBe('ann@example.com')
         ->and($message->events->first()?->message->is($message))->toBeTrue()
-        ->and(RelayMessageEvent::query()->count())->toBe(4);
+        ->and(RelayMessageEvent::query()->count())->toBe(6);
 });
 
 it('keeps an event about a mail it never kept', function (): void {

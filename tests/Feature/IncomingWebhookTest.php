@@ -11,7 +11,9 @@ use Cbox\Relay\Client\Webhooks\Events\MailBlocked;
 use Cbox\Relay\Client\Webhooks\Events\MailBounced;
 use Cbox\Relay\Client\Webhooks\Events\MailClicked;
 use Cbox\Relay\Client\Webhooks\Events\MailComplained;
+use Cbox\Relay\Client\Webhooks\Events\MailDeferred;
 use Cbox\Relay\Client\Webhooks\Events\MailDelivered;
+use Cbox\Relay\Client\Webhooks\Events\MailOpened;
 use Cbox\Relay\Client\Webhooks\Events\MailReceived;
 use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundPaused;
 use Cbox\Relay\Client\Webhooks\Events\PushDelivered;
@@ -144,6 +146,14 @@ it('reads every one of Relay\'s own events', function (string $type, array $data
         MailComplained::class, fn (MailComplained $e): bool => $e->recipient === 'ann@example.com'],
     'mail.clicked' => ['mail.clicked', ['id' => 'msg_1', 'project_id' => 'prj_1', 'link_id' => 'lnk_1', 'url' => 'https://acme.dk/orders/1', 'clicked_at' => '2026-11-12T10:05:00+00:00'],
         MailClicked::class, fn (MailClicked $e): bool => $e->id === 'msg_1' && $e->linkId === 'lnk_1' && $e->url === 'https://acme.dk/orders/1' && $e->clickedAt->format('H:i') === '10:05'],
+    'mail.opened' => ['mail.opened', ['id' => 'msg_1', 'project_id' => 'prj_1', 'opened_at' => '2026-11-12T10:07:00+00:00', 'tags' => ['invoice'], 'metadata' => ['invoice_id' => 'inv_1']],
+        MailOpened::class, fn (MailOpened $e): bool => $e->id === 'msg_1' && $e->openedAt->format('H:i') === '10:07' && $e->tags === ['invoice'] && $e->metadata === ['invoice_id' => 'inv_1']],
+    'mail.deferred' => ['mail.deferred', ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com', 'status' => '4.7.1', 'diagnostic' => '451 4.7.1 Try again later', 'tags' => [], 'metadata' => []],
+        MailDeferred::class, fn (MailDeferred $e): bool => $e->recipient === 'ann@example.com' && $e->status === '4.7.1' && $e->diagnostic === '451 4.7.1 Try again later' && $e->tags === [] && $e->metadata === []],
+    'mail.deferred without a code' => ['mail.deferred', ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com', 'status' => null, 'diagnostic' => null],
+        MailDeferred::class, fn (MailDeferred $e): bool => $e->status === null && $e->diagnostic === null],
+    'mail.delivered with labels' => ['mail.delivered', ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com', 'tags' => ['invoice', 7], 'metadata' => ['invoice_id' => 'inv_1', 'odd' => 3]],
+        MailDelivered::class, fn (MailDelivered $e): bool => $e->tags === ['invoice'] && $e->metadata === ['invoice_id' => 'inv_1']],
     'push.delivered' => ['push.delivered', ['id' => 'psm_1', 'project_id' => 'prj_1', 'subscription_id' => 'psb_1', 'external_ref' => null, 'attempts' => 2],
         PushDelivered::class, fn (PushDelivered $e): bool => $e->subscriptionId === 'psb_1' && $e->externalRef === null && $e->attempts === 2],
     'endpoint.disabled' => ['endpoint.disabled', ['endpoint_id' => 'ep_1', 'project_id' => 'prj_1', 'reason' => 'failing'],
