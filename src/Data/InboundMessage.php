@@ -23,7 +23,7 @@ readonly class InboundMessage
      */
     public function __construct(
         public string $id,
-        public string $scopeId,
+        public string $projectId,
         public string $status,
         public string $recipient,
         public string $envelopeFrom,
@@ -50,7 +50,7 @@ readonly class InboundMessage
 
         return new self(
             id: Payload::string($data, 'id'),
-            scopeId: Payload::string($data, 'scope_id'),
+            projectId: Payload::string($data, 'project_id'),
             status: Payload::string($data, 'status'),
             recipient: Payload::string($data, 'recipient'),
             envelopeFrom: Payload::nullableString($data, 'envelope_from') ?? '',

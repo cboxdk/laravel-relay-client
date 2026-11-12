@@ -50,11 +50,11 @@ function endpointBody(array $extra = []): array
 /**
  * @param  array<string, mixed>  $body
  */
-function sentJson(string $method, string $path, array $body, ?string $scope = 'ws_1'): void
+function sentJson(string $method, string $path, array $body, ?string $project = 'ws_1'): void
 {
     Http::assertSent(fn (Request $request): bool => $request->method() === $method
         && $request->url() === 'https://relay.test'.$path
-        && $request->header('Relay-Scope') === ($scope === null ? [] : [$scope])
+        && $request->header('Relay-Project') === ($project === null ? [] : [$project])
         && json_decode($request->body(), true) === $body);
 }
 
@@ -127,8 +127,8 @@ it('lists events and reads one with its payload and deliveries', function (): vo
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/events?type=order.paid&limit=10&cursor=c1');
 });
 
-it('does not hide a missing scope behind a null from a find', function (): void {
-    Http::fake(['relay.test/v1/events/evt_1' => Http::response(['type' => 'https://cboxrelay.com/problems/scope_not_found', 'title' => 'Not found', 'status' => 404], 404)]);
+it('does not hide a missing project behind a null from a find', function (): void {
+    Http::fake(['relay.test/v1/events/evt_1' => Http::response(['type' => 'https://cboxrelay.com/problems/project_not_found', 'title' => 'Not found', 'status' => 404], 404)]);
 
     http()->findEvent('evt_1', 'ws_gone');
 })->throws(RelayNotFound::class);
@@ -241,7 +241,7 @@ it('claims, verifies, lists and removes inbound routes', function (): void {
 
 it('reads received mail as summaries and one mail with content and attachment links', function (): void {
     $summary = [
-        'id' => 'inb_1', 'scope_id' => 'scp_1', 'status' => 'parsed', 'kind' => 'mail', 'recipient' => 'hello@acme.dk', 'envelope_from' => 'ann@example.com',
+        'id' => 'inb_1', 'project_id' => 'prj_1', 'status' => 'parsed', 'kind' => 'mail', 'recipient' => 'hello@acme.dk', 'envelope_from' => 'ann@example.com',
         'from' => ['address' => 'ann@example.com', 'name' => 'Ann'], 'subject' => 'Hi', 'message_id' => '<1@example.com>', 'in_reply_to' => null, 'size' => 1200,
         'authentication' => ['spf' => 'pass', 'dkim' => 'pass'],
         'attachments' => [['id' => 'att_1', 'name' => 'a.pdf', 'type' => 'application/pdf', 'size' => 900, 'inline' => false, 'content_id' => null, 'url' => null]],
@@ -270,12 +270,12 @@ it('reads received mail as summaries and one mail with content and attachment li
 
     http()->deleteInbound('inb_1', 'erase-1');
 
-    Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE' && $request->hasHeader('Idempotency-Key', 'erase-1') && ! $request->hasHeader('Relay-Scope'));
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'DELETE' && $request->hasHeader('Idempotency-Key', 'erase-1') && ! $request->hasHeader('Relay-Project'));
 });
 
 it('reads a received mail whose kind and sender are not known yet', function (): void {
     Http::fake(['relay.test/v1/inbound/inb_1' => Http::response([
-        'id' => 'inb_1', 'scope_id' => 'scp_1', 'status' => 'received', 'kind' => null, 'recipient' => 'hello@acme.dk', 'envelope_from' => '',
+        'id' => 'inb_1', 'project_id' => 'prj_1', 'status' => 'received', 'kind' => null, 'recipient' => 'hello@acme.dk', 'envelope_from' => '',
         'from' => null, 'subject' => null, 'message_id' => null, 'in_reply_to' => null, 'size' => 10, 'authentication' => [], 'attachments' => [], 'received_at' => AT,
     ])]);
 
@@ -317,8 +317,8 @@ it('sends a push message and reads what became of it', function (): void {
 
     sentJson('POST', '/v1/push', ['subscription' => 'psb_1', 'payload' => ['title' => 'Shipped'], 'ttl' => 3600, 'urgency' => 'high', 'topic' => 'orders']);
 
-    http()->sendPush('psb_1', [], scope: 'ws_1');
-    http()->sendPush('psb_1', 'plain text', scope: 'ws_1');
+    http()->sendPush('psb_1', [], project: 'ws_1');
+    http()->sendPush('psb_1', 'plain text', project: 'ws_1');
 
     Http::assertSent(fn (Request $request): bool => $request->body() === '{"subscription":"psb_1","payload":{}}');
     Http::assertSent(fn (Request $request): bool => $request->body() === '{"subscription":"psb_1","payload":"plain text"}');

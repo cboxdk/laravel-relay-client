@@ -22,9 +22,9 @@ class QueuedEventPublisher implements EventPublisher
         private readonly RelayConfig $config,
     ) {}
 
-    public function publish(NewEvent $event, ?string $scope = null): void
+    public function publish(NewEvent $event, ?string $project = null): void
     {
-        $job = PublishEvent::for($event, $scope, $this->config->publishTries(), $this->config->publishBackoff())
+        $job = PublishEvent::for($event, $project, $this->config->publishTries(), $this->config->publishBackoff())
             ->onConnection($this->config->publishConnection())
             ->onQueue($this->config->publishQueue())
             ->afterCommit();

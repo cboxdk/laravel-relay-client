@@ -29,37 +29,37 @@ use PHPUnit\Framework\Assert;
  */
 trait FakesWebhooks
 {
-    /** @var array<string, list<EventType>> by scope */
+    /** @var array<string, list<EventType>> by project */
     private array $eventTypes = [];
 
-    /** @var array<string, array<string, Endpoint>> by scope, then id */
+    /** @var array<string, array<string, Endpoint>> by project, then id */
     private array $endpoints = [];
 
-    /** @var array<string, array<string, Event>> by scope, then id; each with its payload */
+    /** @var array<string, array<string, Event>> by project, then id; each with its payload */
     private array $events = [];
 
-    /** @var array<string, array<string, WebhookDelivery>> by scope, then id */
+    /** @var array<string, array<string, WebhookDelivery>> by project, then id */
     private array $webhookDeliveries = [];
 
-    /** @var list<array{event: NewEvent, scope: string|null, id: string, bucket: string}> every event that was really published */
+    /** @var list<array{event: NewEvent, project: string|null, id: string, bucket: string}> every event that was really published */
     private array $published = [];
 
-    /** @var list<array{subject: string, scope: string|null}> */
+    /** @var list<array{subject: string, project: string|null}> */
     private array $erasedSubjects = [];
 
     private PingResult $pingResult;
 
-    public function listEventTypes(?string $scope = null): array
+    public function listEventTypes(?string $project = null): array
     {
-        $this->record(new RecordedCall(Operation::ListEventTypes, $scope));
+        $this->record(new RecordedCall(Operation::ListEventTypes, $project));
 
-        return $this->eventTypes[$this->bucket($scope)] ?? [];
+        return $this->eventTypes[$this->bucket($project)] ?? [];
     }
 
-    public function putEventTypes(array $types, ?string $scope = null): array
+    public function putEventTypes(array $types, ?string $project = null): array
     {
-        $this->record(new RecordedCall(Operation::PutEventTypes, $scope));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::PutEventTypes, $project));
+        $bucket = $this->bucket($project);
 
         foreach ($types as $type) {
             if (isset(IncomingWebhook::EVENTS[$type->type])) {
@@ -70,19 +70,19 @@ trait FakesWebhooks
         return $this->eventTypes[$bucket] = $types;
     }
 
-    public function publishEvent(NewEvent $event, ?string $scope = null): Published
+    public function publishEvent(NewEvent $event, ?string $project = null): Published
     {
-        $this->record(new RecordedCall(Operation::PublishEvent, $scope, idempotencyKey: $event->idempotencyKey, subject: $event));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::PublishEvent, $project, idempotencyKey: $event->idempotencyKey, subject: $event));
+        $bucket = $this->bucket($project);
         $this->guardDeclared($bucket, $event);
 
-        return $this->store($bucket, $event, $scope);
+        return $this->store($bucket, $event, $project);
     }
 
-    public function publishEvents(array $events, ?string $scope = null): array
+    public function publishEvents(array $events, ?string $project = null): array
     {
-        $this->record(new RecordedCall(Operation::PublishEvents, $scope));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::PublishEvents, $project));
+        $bucket = $this->bucket($project);
 
         if ($events === [] || count($events) > 100) {
             throw $this->invalid('events', 'A batch holds 1 to 100 events.');
@@ -93,15 +93,15 @@ trait FakesWebhooks
             $this->guardDeclared($bucket, $event);
         }
 
-        return array_map(fn (NewEvent $event): Published => $this->store($bucket, $event, $scope), $events);
+        return array_map(fn (NewEvent $event): Published => $this->store($bucket, $event, $project), $events);
     }
 
-    public function listEvents(?string $type = null, ?int $limit = null, ?string $cursor = null, ?string $scope = null): Page
+    public function listEvents(?string $type = null, ?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
-        $this->record(new RecordedCall(Operation::ListEvents, $scope, $type, limit: $limit, cursor: $cursor));
+        $this->record(new RecordedCall(Operation::ListEvents, $project, $type, limit: $limit, cursor: $cursor));
 
         $events = array_values(array_filter(
-            array_reverse(array_values($this->events[$this->bucket($scope)] ?? [])),
+            array_reverse(array_values($this->events[$this->bucket($project)] ?? [])),
             static fn (Event $event): bool => $type === null || $type === '' || $event->type === $type,
         ));
 
@@ -112,10 +112,10 @@ trait FakesWebhooks
         ), $limit, $cursor);
     }
 
-    public function findEvent(string $id, ?string $scope = null): ?Event
+    public function findEvent(string $id, ?string $project = null): ?Event
     {
-        $this->record(new RecordedCall(Operation::FindEvent, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::FindEvent, $project, $id));
+        $bucket = $this->bucket($project);
         $event = $this->events[$bucket][$id] ?? null;
 
         return $event === null ? null : new Event(
@@ -129,13 +129,13 @@ trait FakesWebhooks
         );
     }
 
-    public function retryWebhookDelivery(string $id, ?string $scope = null): DeliveryRetry
+    public function retryWebhookDelivery(string $id, ?string $project = null): DeliveryRetry
     {
-        $this->record(new RecordedCall(Operation::RetryWebhookDelivery, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::RetryWebhookDelivery, $project, $id));
+        $bucket = $this->bucket($project);
 
         if (! isset($this->webhookDeliveries[$bucket][$id])) {
-            throw $this->missing('delivery_not_found', 'No delivery with that id can be retried in this scope.');
+            throw $this->missing('delivery_not_found', 'No delivery with that id can be retried in this project.');
         }
 
         $this->markWebhookDelivery($id, 'pending');
@@ -143,10 +143,10 @@ trait FakesWebhooks
         return new DeliveryRetry($id, 'pending');
     }
 
-    public function eraseSubject(string $subject, ?string $scope = null): Erasure
+    public function eraseSubject(string $subject, ?string $project = null): Erasure
     {
-        $this->record(new RecordedCall(Operation::EraseSubject, $scope, $subject));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::EraseSubject, $project, $subject));
+        $bucket = $this->bucket($project);
         $removed = 0;
 
         foreach ($this->published as $published) {
@@ -167,22 +167,22 @@ trait FakesWebhooks
             $removed += 1 + count($deliveries);
         }
 
-        $this->erasedSubjects[] = ['subject' => $subject, 'scope' => $scope];
+        $this->erasedSubjects[] = ['subject' => $subject, 'project' => $project];
 
         return new Erasure($subject, $removed);
     }
 
-    public function listEndpoints(?string $scope = null): array
+    public function listEndpoints(?string $project = null): array
     {
-        $this->record(new RecordedCall(Operation::ListEndpoints, $scope));
+        $this->record(new RecordedCall(Operation::ListEndpoints, $project));
 
-        return array_map($this->withoutSecret(...), array_values($this->endpoints[$this->bucket($scope)] ?? []));
+        return array_map($this->withoutSecret(...), array_values($this->endpoints[$this->bucket($project)] ?? []));
     }
 
-    public function createEndpoint(NewEndpoint $endpoint, ?string $idempotencyKey = null, ?string $scope = null): Endpoint
+    public function createEndpoint(NewEndpoint $endpoint, ?string $idempotencyKey = null, ?string $project = null): Endpoint
     {
-        $this->record(new RecordedCall(Operation::CreateEndpoint, $scope, idempotencyKey: $idempotencyKey, subject: $endpoint));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::CreateEndpoint, $project, idempotencyKey: $idempotencyKey, subject: $endpoint));
+        $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::CreateEndpoint, $bucket, $endpoint);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
@@ -212,18 +212,18 @@ trait FakesWebhooks
         return $this->remember($idempotencyKey, $fingerprint, $created);
     }
 
-    public function findEndpoint(string $id, ?string $scope = null): ?Endpoint
+    public function findEndpoint(string $id, ?string $project = null): ?Endpoint
     {
-        $this->record(new RecordedCall(Operation::FindEndpoint, $scope, $id));
-        $endpoint = $this->endpoints[$this->bucket($scope)][$id] ?? null;
+        $this->record(new RecordedCall(Operation::FindEndpoint, $project, $id));
+        $endpoint = $this->endpoints[$this->bucket($project)][$id] ?? null;
 
         return $endpoint === null ? null : $this->withoutSecret($endpoint);
     }
 
-    public function updateEndpoint(string $id, EndpointChanges $changes, ?string $scope = null): Endpoint
+    public function updateEndpoint(string $id, EndpointChanges $changes, ?string $project = null): Endpoint
     {
-        $this->record(new RecordedCall(Operation::UpdateEndpoint, $scope, $id, subject: $changes));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::UpdateEndpoint, $project, $id, subject: $changes));
+        $bucket = $this->bucket($project);
         $endpoint = $this->endpointIn($bucket, $id);
 
         if ($changes->url !== null && ! str_starts_with($changes->url, 'https://')) {
@@ -239,35 +239,35 @@ trait FakesWebhooks
         ));
     }
 
-    public function deleteEndpoint(string $id, ?string $scope = null): void
+    public function deleteEndpoint(string $id, ?string $project = null): void
     {
-        $this->record(new RecordedCall(Operation::DeleteEndpoint, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::DeleteEndpoint, $project, $id));
+        $bucket = $this->bucket($project);
         $this->endpointIn($bucket, $id);
 
         unset($this->endpoints[$bucket][$id]);
     }
 
-    public function pauseEndpoint(string $id, ?string $scope = null): Endpoint
+    public function pauseEndpoint(string $id, ?string $project = null): Endpoint
     {
-        $this->record(new RecordedCall(Operation::PauseEndpoint, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::PauseEndpoint, $project, $id));
+        $bucket = $this->bucket($project);
 
         return $this->withoutSecret($this->endpoints[$bucket][$id] = $this->changed($this->endpointIn($bucket, $id), status: 'paused'));
     }
 
-    public function resumeEndpoint(string $id, ?string $scope = null): Endpoint
+    public function resumeEndpoint(string $id, ?string $project = null): Endpoint
     {
-        $this->record(new RecordedCall(Operation::ResumeEndpoint, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::ResumeEndpoint, $project, $id));
+        $bucket = $this->bucket($project);
 
         return $this->withoutSecret($this->endpoints[$bucket][$id] = $this->changed($this->endpointIn($bucket, $id), status: 'active'));
     }
 
-    public function rotateEndpointSecret(string $id, ?string $scope = null): Endpoint
+    public function rotateEndpointSecret(string $id, ?string $project = null): Endpoint
     {
-        $this->record(new RecordedCall(Operation::RotateEndpointSecret, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::RotateEndpointSecret, $project, $id));
+        $bucket = $this->bucket($project);
 
         $rotated = $this->changed($this->endpointIn($bucket, $id), secret: 'fake_secret_'.$this->nextNumber());
         $this->endpoints[$bucket][$id] = $rotated;
@@ -279,18 +279,18 @@ trait FakesWebhooks
         );
     }
 
-    public function pingEndpoint(string $id, ?string $scope = null): PingResult
+    public function pingEndpoint(string $id, ?string $project = null): PingResult
     {
-        $this->record(new RecordedCall(Operation::PingEndpoint, $scope, $id));
-        $this->endpointIn($this->bucket($scope), $id);
+        $this->record(new RecordedCall(Operation::PingEndpoint, $project, $id));
+        $this->endpointIn($this->bucket($project), $id);
 
         return $this->pingResult;
     }
 
-    public function replayEndpoint(string $id, DateTimeInterface $since, ?DateTimeInterface $until = null, array $types = [], ?string $scope = null): int
+    public function replayEndpoint(string $id, DateTimeInterface $since, ?DateTimeInterface $until = null, array $types = [], ?string $project = null): int
     {
-        $this->record(new RecordedCall(Operation::ReplayEndpoint, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::ReplayEndpoint, $project, $id));
+        $bucket = $this->bucket($project);
         $endpoint = $this->endpointIn($bucket, $id);
         $queued = 0;
 
@@ -310,13 +310,13 @@ trait FakesWebhooks
 
     /**
      * Store an endpoint as if it had been registered earlier, without recording a call.
-     * The scope is stored first if it is not there.
+     * The project is stored first if it is not there.
      *
      * @param  list<string>  $eventTypes
      */
-    public function seedEndpoint(string $scope, string $url = 'https://example.test/hooks', array $eventTypes = ['*'], string $status = 'active'): Endpoint
+    public function seedEndpoint(string $project, string $url = 'https://example.test/hooks', array $eventTypes = ['*'], string $status = 'active'): Endpoint
     {
-        $bucket = ($this->scope($scope) ?? $this->seedScope($scope))->id;
+        $bucket = ($this->project($project) ?? $this->seedProject($project))->id;
         $number = $this->nextNumber();
 
         return $this->endpoints[$bucket]['ep_fake_'.$number] = new Endpoint(
@@ -371,13 +371,13 @@ trait FakesWebhooks
     /**
      * An event of that type was published (and matches `$where`).
      *
-     * @param  (callable(NewEvent, string|null): bool)|null  $where  given the event and the scope it was published for
+     * @param  (callable(NewEvent, string|null): bool)|null  $where  given the event and the project it was published for
      */
     public function assertPublished(string $type, ?callable $where = null): void
     {
         $matching = array_filter(
             $this->published,
-            static fn (array $published): bool => $published['event']->type === $type && ($where === null || $where($published['event'], $published['scope'])),
+            static fn (array $published): bool => $published['event']->type === $type && ($where === null || $where($published['event'], $published['project'])),
         );
 
         Assert::assertNotEmpty($matching, $where === null
@@ -395,12 +395,12 @@ trait FakesWebhooks
         Assert::assertSame([], $this->published($type), "The event '{$type}' was published to Cbox Relay.");
     }
 
-    /** An erasure was asked for that subject (for that scope, when one is given). */
-    public function assertSubjectErased(string $subject, ?string $scope = null): void
+    /** An erasure was asked for that subject (for that project, when one is given). */
+    public function assertSubjectErased(string $subject, ?string $project = null): void
     {
-        $matching = array_filter($this->erasedSubjects, static fn (array $erased): bool => $erased['subject'] === $subject && ($scope === null || $erased['scope'] === $scope));
+        $matching = array_filter($this->erasedSubjects, static fn (array $erased): bool => $erased['subject'] === $subject && ($project === null || $erased['project'] === $project));
 
-        Assert::assertNotEmpty($matching, "Cbox Relay was not asked to erase the subject '{$subject}'".($scope === null ? '' : " for the scope '{$scope}'").'.');
+        Assert::assertNotEmpty($matching, "Cbox Relay was not asked to erase the subject '{$subject}'".($project === null ? '' : " for the project '{$project}'").'.');
     }
 
     public function assertNoSubjectErased(): void
@@ -414,13 +414,13 @@ trait FakesWebhooks
     }
 
     /**
-     * The scope's event types were declared as exactly these names, in any order.
+     * The project's event types were declared as exactly these names, in any order.
      *
      * @param  list<string>  $types
      */
-    public function assertEventTypesDeclared(array $types, ?string $scope = null): void
+    public function assertEventTypesDeclared(array $types, ?string $project = null): void
     {
-        $declared = array_map(static fn (EventType $type): string => $type->type, $this->eventTypes[$this->bucketOf($scope)] ?? []);
+        $declared = array_map(static fn (EventType $type): string => $type->type, $this->eventTypes[$this->bucketOf($project)] ?? []);
 
         sort($declared);
         sort($types);
@@ -448,17 +448,17 @@ trait FakesWebhooks
         Assert::assertNotEmpty($matching, "No webhook endpoint '{$url}'".($where === null ? '' : ' matching the condition').' is registered with Cbox Relay.');
     }
 
-    /** Once a scope has declared types, only those can be published, as on the real service. */
+    /** Once a project has declared types, only those can be published, as on the real service. */
     private function guardDeclared(string $bucket, NewEvent $event): void
     {
         $declared = $this->eventTypes[$bucket] ?? [];
 
         if ($declared !== [] && array_find($declared, static fn (EventType $type): bool => $type->type === $event->type) === null) {
-            throw $this->invalid('type', "The type '{$event->type}' is not one this scope declared.");
+            throw $this->invalid('type', "The type '{$event->type}' is not one this project declared.");
         }
     }
 
-    private function store(string $bucket, NewEvent $event, ?string $scope): Published
+    private function store(string $bucket, NewEvent $event, ?string $project): Published
     {
         if ($event->idempotencyKey !== null) {
             $first = array_find($this->events[$bucket] ?? [], static fn (Event $stored): bool => $stored->idempotencyKey === $event->idempotencyKey);
@@ -471,7 +471,7 @@ trait FakesWebhooks
         $stored = new Event('evt_fake_'.$this->nextNumber(), $event->type, $event->idempotencyKey, $event->occurredAt ?? $this->now(), $this->now(), $event->payload);
 
         $this->events[$bucket][$stored->id] = $stored;
-        $this->published[] = ['event' => $event, 'scope' => $scope, 'id' => $stored->id, 'bucket' => $bucket];
+        $this->published[] = ['event' => $event, 'project' => $project, 'id' => $stored->id, 'bucket' => $bucket];
 
         $deliveries = 0;
 
@@ -497,7 +497,7 @@ trait FakesWebhooks
 
     private function endpointIn(string $bucket, string $id): Endpoint
     {
-        return $this->endpoints[$bucket][$id] ?? throw $this->missing('endpoint_not_found', 'No webhook endpoint with that id exists in this scope.');
+        return $this->endpoints[$bucket][$id] ?? throw $this->missing('endpoint_not_found', 'No webhook endpoint with that id exists in this project.');
     }
 
     /** The secret is only in the answer that made or rotated it. */

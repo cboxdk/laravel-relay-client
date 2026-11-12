@@ -22,16 +22,16 @@ use PHPUnit\Framework\Assert;
 /** Outbound mail, in memory: domains and suppressions are stored, mail is recorded and never leaves. */
 trait FakesMail
 {
-    /** @var array<string, array<string, SendingDomain>> by scope, then id */
+    /** @var array<string, array<string, SendingDomain>> by project, then id */
     private array $domains = [];
 
-    /** @var array<string, array<string, Suppression>> by scope, then address */
+    /** @var array<string, array<string, Suppression>> by project, then address */
     private array $suppressions = [];
 
-    /** @var array<string, array<string, Mail>> by scope, then id */
+    /** @var array<string, array<string, Mail>> by project, then id */
     private array $mails = [];
 
-    /** @var list<array{mail: OutgoingMail, scope: string|null, id: string}> */
+    /** @var list<array{mail: OutgoingMail, project: string|null, id: string}> */
     private array $sentMail = [];
 
     /** @var list<string> ids of held mail that was released */
@@ -40,17 +40,17 @@ trait FakesMail
     /** @var list<string> ids of held mail that was discarded */
     private array $discardedMail = [];
 
-    public function listDomains(?string $scope = null): array
+    public function listDomains(?string $project = null): array
     {
-        $this->record(new RecordedCall(Operation::ListDomains, $scope));
+        $this->record(new RecordedCall(Operation::ListDomains, $project));
 
-        return array_values($this->domains[$this->bucket($scope)] ?? []);
+        return array_values($this->domains[$this->bucket($project)] ?? []);
     }
 
-    public function createDomain(string $domain, ?string $idempotencyKey = null, ?string $scope = null): SendingDomain
+    public function createDomain(string $domain, ?string $idempotencyKey = null, ?string $project = null): SendingDomain
     {
-        $this->record(new RecordedCall(Operation::CreateDomain, $scope, $domain, idempotencyKey: $idempotencyKey));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::CreateDomain, $project, $domain, idempotencyKey: $idempotencyKey));
+        $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::CreateDomain, $bucket, $domain);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
@@ -61,7 +61,7 @@ trait FakesMail
         $domain = strtolower($domain);
 
         if (array_find($this->domains[$bucket] ?? [], static fn (SendingDomain $known): bool => $known->domain === $domain) !== null) {
-            throw $this->invalid('domain', "The domain '{$domain}' is registered for this scope already.");
+            throw $this->invalid('domain', "The domain '{$domain}' is registered for this project already.");
         }
 
         $number = $this->nextNumber();
@@ -75,17 +75,17 @@ trait FakesMail
         return $this->remember($idempotencyKey, $fingerprint, $this->domains[$bucket][$stored->id] = $stored);
     }
 
-    public function findDomain(string $id, ?string $scope = null): ?SendingDomain
+    public function findDomain(string $id, ?string $project = null): ?SendingDomain
     {
-        $this->record(new RecordedCall(Operation::FindDomain, $scope, $id));
+        $this->record(new RecordedCall(Operation::FindDomain, $project, $id));
 
-        return $this->domains[$this->bucket($scope)][$id] ?? null;
+        return $this->domains[$this->bucket($project)][$id] ?? null;
     }
 
-    public function verifyDomain(string $id, ?string $scope = null): SendingDomain
+    public function verifyDomain(string $id, ?string $project = null): SendingDomain
     {
-        $this->record(new RecordedCall(Operation::VerifyDomain, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::VerifyDomain, $project, $id));
+        $bucket = $this->bucket($project);
         $domain = $this->domainIn($bucket, $id);
 
         // Found: verified. Gone from a verified domain: failed. Never found: still pending.
@@ -101,10 +101,10 @@ trait FakesMail
         );
     }
 
-    public function domainReputation(string $id, ?string $scope = null): DomainReputation
+    public function domainReputation(string $id, ?string $project = null): DomainReputation
     {
-        $this->record(new RecordedCall(Operation::DomainReputation, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::DomainReputation, $project, $id));
+        $bucket = $this->bucket($project);
         $domain = $this->domainIn($bucket, $id);
         $counts = ['sent' => 0, 'bounced' => 0, 'complained' => 0];
 
@@ -134,26 +134,26 @@ trait FakesMail
         );
     }
 
-    public function deleteDomain(string $id, ?string $scope = null): void
+    public function deleteDomain(string $id, ?string $project = null): void
     {
-        $this->record(new RecordedCall(Operation::DeleteDomain, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::DeleteDomain, $project, $id));
+        $bucket = $this->bucket($project);
         $this->domainIn($bucket, $id);
 
         unset($this->domains[$bucket][$id]);
     }
 
-    public function listSuppressions(?int $limit = null, ?string $cursor = null, ?string $scope = null): Page
+    public function listSuppressions(?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
-        $this->record(new RecordedCall(Operation::ListSuppressions, $scope, limit: $limit, cursor: $cursor));
+        $this->record(new RecordedCall(Operation::ListSuppressions, $project, limit: $limit, cursor: $cursor));
 
-        return $this->page(array_reverse(array_values($this->suppressions[$this->bucket($scope)] ?? [])), $limit, $cursor);
+        return $this->page(array_reverse(array_values($this->suppressions[$this->bucket($project)] ?? [])), $limit, $cursor);
     }
 
-    public function createSuppression(string $address, ?SuppressionReason $reason = null, ?string $idempotencyKey = null, ?string $scope = null): Suppression
+    public function createSuppression(string $address, ?SuppressionReason $reason = null, ?string $idempotencyKey = null, ?string $project = null): Suppression
     {
-        $this->record(new RecordedCall(Operation::CreateSuppression, $scope, $address, $reason?->value, idempotencyKey: $idempotencyKey));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::CreateSuppression, $project, $address, $reason?->value, idempotencyKey: $idempotencyKey));
+        $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::CreateSuppression, $bucket, [$address, $reason]);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
@@ -175,23 +175,23 @@ trait FakesMail
         return $this->remember($idempotencyKey, $fingerprint, new Suppression($stored->address, $stored->reason, $stored->createdAt, created: true));
     }
 
-    public function deleteSuppression(string $address, ?string $scope = null): void
+    public function deleteSuppression(string $address, ?string $project = null): void
     {
-        $this->record(new RecordedCall(Operation::DeleteSuppression, $scope, $address));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::DeleteSuppression, $project, $address));
+        $bucket = $this->bucket($project);
         $address = strtolower($address);
 
         if (! isset($this->suppressions[$bucket][$address])) {
-            throw $this->missing('suppression_not_found', 'That address is not on the suppression list of this scope.');
+            throw $this->missing('suppression_not_found', 'That address is not on the suppression list of this project.');
         }
 
         unset($this->suppressions[$bucket][$address]);
     }
 
-    public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null, ?string $scope = null): Mail
+    public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null, ?string $project = null): Mail
     {
-        $this->record(new RecordedCall(Operation::SendMail, $scope, idempotencyKey: $idempotencyKey, subject: $mail));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::SendMail, $project, idempotencyKey: $idempotencyKey, subject: $mail));
+        $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::SendMail, $bucket, $mail);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
@@ -224,22 +224,22 @@ trait FakesMail
         );
 
         $this->mails[$bucket][$stored->id] = $stored;
-        $this->sentMail[] = ['mail' => $mail, 'scope' => $scope, 'id' => $stored->id];
+        $this->sentMail[] = ['mail' => $mail, 'project' => $project, 'id' => $stored->id];
 
         return $this->remember($idempotencyKey, $fingerprint, $stored);
     }
 
-    public function findMail(string $id, ?string $scope = null): ?Mail
+    public function findMail(string $id, ?string $project = null): ?Mail
     {
-        $this->record(new RecordedCall(Operation::FindMail, $scope, $id));
+        $this->record(new RecordedCall(Operation::FindMail, $project, $id));
 
-        return $this->mails[$this->bucket($scope)][$id] ?? null;
+        return $this->mails[$this->bucket($project)][$id] ?? null;
     }
 
-    public function releaseMail(string $id, ?string $scope = null): Mail
+    public function releaseMail(string $id, ?string $project = null): Mail
     {
-        $this->record(new RecordedCall(Operation::ReleaseMail, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::ReleaseMail, $project, $id));
+        $bucket = $this->bucket($project);
         $mail = $this->heldMailIn($bucket, $id);
 
         // Queued as if it had not been held; whoever was suppressed since is left out.
@@ -252,10 +252,10 @@ trait FakesMail
         return $this->mails[$bucket][$id] = new Mail($mail->id, 'queued', $mail->from, $mail->subject, $mail->createdAt, null, $mail->verdicts, $recipients, $mail->sentAt);
     }
 
-    public function discardMail(string $id, ?string $scope = null): Mail
+    public function discardMail(string $id, ?string $project = null): Mail
     {
-        $this->record(new RecordedCall(Operation::DiscardMail, $scope, $id));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::DiscardMail, $project, $id));
+        $bucket = $this->bucket($project);
         $mail = $this->heldMailIn($bucket, $id);
 
         $this->discardedMail[] = $id;
@@ -264,21 +264,21 @@ trait FakesMail
     }
 
     /**
-     * Store a sending domain for a scope (stored first if it is not there) as if it had
+     * Store a sending domain for a project (stored first if it is not there) as if it had
      * been registered and, by default, verified earlier. Records no call.
      */
-    public function seedDomain(string $scope, string $domain, string $status = 'verified'): SendingDomain
+    public function seedDomain(string $project, string $domain, string $status = 'verified'): SendingDomain
     {
-        $bucket = ($this->scope($scope) ?? $this->seedScope($scope))->id;
+        $bucket = ($this->project($project) ?? $this->seedProject($project))->id;
         $stored = new SendingDomain('sdm_fake_'.$this->nextNumber(), strtolower($domain), $status, $this->now(), verifiedAt: $status === 'verified' ? $this->now() : null);
 
         return $this->domains[$bucket][$stored->id] = $stored;
     }
 
-    /** Put an address on a scope's suppression list (the scope is stored first if it is not there). Records no call. */
-    public function seedSuppression(string $scope, string $address, SuppressionReason $reason = SuppressionReason::Manual, ?string $source = null): Suppression
+    /** Put an address on a project's suppression list (the project is stored first if it is not there). Records no call. */
+    public function seedSuppression(string $project, string $address, SuppressionReason $reason = SuppressionReason::Manual, ?string $source = null): Suppression
     {
-        $bucket = ($this->scope($scope) ?? $this->seedScope($scope))->id;
+        $bucket = ($this->project($project) ?? $this->seedProject($project))->id;
 
         return $this->suppressions[$bucket][strtolower($address)] = new Suppression(strtolower($address), $reason->value, $this->now(), $source);
     }
@@ -339,11 +339,11 @@ trait FakesMail
     /**
      * A mail was handed to Relay (and matches `$where`).
      *
-     * @param  (callable(OutgoingMail, string|null): bool)|null  $where  given the mail and the scope it was sent for
+     * @param  (callable(OutgoingMail, string|null): bool)|null  $where  given the mail and the project it was sent for
      */
     public function assertMailSent(?callable $where = null): void
     {
-        $matching = array_filter($this->sentMail, static fn (array $sent): bool => $where === null || $where($sent['mail'], $sent['scope']));
+        $matching = array_filter($this->sentMail, static fn (array $sent): bool => $where === null || $where($sent['mail'], $sent['project']));
 
         Assert::assertNotEmpty($matching, $where === null
             ? 'No mail was sent through Cbox Relay.'
@@ -372,10 +372,10 @@ trait FakesMail
         Assert::assertContains($id, $this->discardedMail, "The held mail '{$id}' was not discarded through Cbox Relay.");
     }
 
-    /** A mail that exists in the scope and is held; anything else is the 404 or the 409 the real service answers. */
+    /** A mail that exists in the project and is held; anything else is the 404 or the 409 the real service answers. */
     private function heldMailIn(string $bucket, string $id): Mail
     {
-        $mail = $this->mails[$bucket][$id] ?? throw $this->missing('mail_not_found', 'No mail with that id exists in this scope.');
+        $mail = $this->mails[$bucket][$id] ?? throw $this->missing('mail_not_found', 'No mail with that id exists in this project.');
 
         if ($mail->status !== 'quarantined') {
             throw new RelayConflict('Cbox Relay answered 409 Conflict: The mail is not held.', new Problem(409, 'Conflict', 'The mail is not held.', self::PROBLEMS.'mail_not_held'));
@@ -409,17 +409,17 @@ trait FakesMail
             }
         }
 
-        // Once a scope has sending domains, the sender must be at a verified one, as on the real service.
+        // Once a project has sending domains, the sender must be at a verified one, as on the real service.
         $domains = $this->domains[$bucket] ?? [];
         $sender = strtolower(substr((string) strrchr($mail->from->address, '@'), 1));
 
         if ($domains !== [] && array_find($domains, static fn (SendingDomain $domain): bool => $domain->domain === $sender && $domain->verified()) === null) {
-            throw $this->invalid('from.address', "The domain '{$sender}' is not a verified sending domain of this scope.");
+            throw $this->invalid('from.address', "The domain '{$sender}' is not a verified sending domain of this project.");
         }
     }
 
     private function domainIn(string $bucket, string $id): SendingDomain
     {
-        return $this->domains[$bucket][$id] ?? throw $this->missing('domain_not_found', 'No sending domain with that id exists in this scope.');
+        return $this->domains[$bucket][$id] ?? throw $this->missing('domain_not_found', 'No sending domain with that id exists in this project.');
     }
 }

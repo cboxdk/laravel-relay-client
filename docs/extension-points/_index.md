@@ -31,7 +31,7 @@ because each resolves the contract from the container when it is used.
 ```php
 interface EventPublisher
 {
-    public function publish(NewEvent $event, ?string $scope = null): void;
+    public function publish(NewEvent $event, ?string $project = null): void;
 }
 ```
 
@@ -48,12 +48,12 @@ The event always arrives with an idempotency key, so your implementation may del
 more than once without publishing twice.
 
 `Jobs\PublishEvent` is an ordinary job class: subclass it, or dispatch it yourself with
-`PublishEvent::for(new NewEvent(…), $scope, $tries, $backoff)`.
+`PublishEvent::for(new NewEvent(…), $project, $tries, $backoff)`.
 
 ## Webhook secrets per request
 
 The `relay.webhook` middleware asks `Cbox\Relay\Client\Contracts\WebhookSecrets` which
-secrets a request may be signed with. The default reads `relay.webhook`. When each scope
+secrets a request may be signed with. The default reads `relay.webhook`. When each project
 has its own endpoint and secret, bind your own:
 
 ```php
@@ -82,7 +82,7 @@ middleware and options apply to it like to any other request your app makes.
 
 ## Extend the manager
 
-`Cbox\Relay\Client\Relay` and the objects it returns (`Scopes`, `Endpoints`, `Events`
+`Cbox\Relay\Client\Relay` and the objects it returns (`Projects`, `Endpoints`, `Events`
 and the others) are ordinary, non-final classes. Bind a subclass as
 `Cbox\Relay\Client\Relay` to add methods of your own.
 

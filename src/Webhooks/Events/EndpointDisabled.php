@@ -12,7 +12,7 @@ readonly class EndpointDisabled implements RelayEvent
 {
     public function __construct(
         public string $endpointId,
-        public ?string $scopeId = null,
+        public ?string $projectId = null,
         public string $reason = '',
     ) {}
 
@@ -25,7 +25,7 @@ readonly class EndpointDisabled implements RelayEvent
     {
         return new self(
             Payload::string($data, 'endpoint_id'),
-            Payload::nullableString($data, 'scope_id'),
+            Payload::nullableString($data, 'project_id'),
             Payload::string($data, 'reason'),
         );
     }

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Data;
 
 /**
- * The scope a call acted for, as `whoami` names it: the id, the product's own
- * `external_ref` and the name, without the settings a full {@see Scope} carries.
+ * The project a call acted for, as `whoami` names it: the id, the product's own
+ * `external_ref` and the name, without the settings a full {@see Project} carries.
  */
-readonly class ScopeReference
+readonly class ProjectReference
 {
     public function __construct(
         public string $id,

@@ -8,12 +8,12 @@ use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\BrowserSubscription;
 use Cbox\Relay\Client\Data\PushSubscription;
 
-/** The browsers subscribed to a scope's push messages. Reached through `Relay::pushSubscriptions()`. */
+/** The browsers subscribed to a project's push messages. Reached through `Relay::pushSubscriptions()`. */
 class PushSubscriptions
 {
     public function __construct(
         private readonly RelayTransport $transport,
-        private readonly ActingScope $scope = new ActingScope,
+        private readonly ActingProject $project = new ActingProject,
     ) {}
 
     /**
@@ -30,7 +30,7 @@ class PushSubscriptions
             is_array($subscription) ? BrowserSubscription::fromArray($subscription) : $subscription,
             $ref,
             $idempotencyKey,
-            $this->scope->required(),
+            $this->project->required(),
         );
     }
 
@@ -41,11 +41,11 @@ class PushSubscriptions
      */
     public function list(?string $ref = null): array
     {
-        return $this->transport->listPushSubscriptions($ref, $this->scope->required());
+        return $this->transport->listPushSubscriptions($ref, $this->project->required());
     }
 
     public function unsubscribe(string $id): void
     {
-        $this->transport->deletePushSubscription($id, $this->scope->required());
+        $this->transport->deletePushSubscription($id, $this->project->required());
     }
 }

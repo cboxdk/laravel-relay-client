@@ -23,8 +23,8 @@ use PHPUnit\Framework\AssertionFailedError;
 
 beforeEach(function (): void {
     $this->relay = Relay::fake();
-    $this->relay->seedScope('ws_1', 'Acme');
-    $this->scoped = Relay::forScope('ws_1');
+    $this->relay->seedProject('ws_1', 'Acme');
+    $this->scoped = Relay::forProject('ws_1');
 });
 
 function order(string $to = 'ann@example.com'): OutgoingMail
@@ -50,7 +50,7 @@ it('judges content, scores nothing by default, and knows content it saw before',
         ->and($this->scoped->judgment($first->id)?->created)->toBeFalse()
         ->and($this->scoped->judgment('jdg_missing'))->toBeNull();
 
-    $this->relay->assertJudged(fn (JudgeInput $input, ?string $scope): bool => $input->from?->address === 'hello@acme.dk' && $input->template?->version === '3' && $scope === 'ws_1');
+    $this->relay->assertJudged(fn (JudgeInput $input, ?string $project): bool => $input->from?->address === 'hello@acme.dk' && $input->template?->version === '3' && $project === 'ws_1');
 });
 
 it('answers the judgment the test asked for', function (): void {
@@ -114,10 +114,10 @@ it('claims a subdomain at once, a domain after DNS and a prefix after approval',
 });
 
 it('gives a pattern one owner and a prefix route a prefix', function (): void {
-    $this->relay->seedScope('ws_2');
+    $this->relay->seedProject('ws_2');
     $this->scoped->inboundRoutes()->register(InboundRouteType::Domain, 'acme.dk');
 
-    expect(fn () => Relay::forScope('ws_2')->inboundRoutes()->register(InboundRouteType::Domain, 'acme.dk'))->toThrow(RelayInvalid::class)
+    expect(fn () => Relay::forProject('ws_2')->inboundRoutes()->register(InboundRouteType::Domain, 'acme.dk'))->toThrow(RelayInvalid::class)
         ->and(fn () => $this->scoped->inboundRoutes()->register(InboundRouteType::Prefix, 'cbox.email'))->toThrow(RelayInvalid::class)
         ->and(fn () => $this->scoped->inboundRoutes()->verify('irt_missing'))->toThrow(RelayNotFound::class)
         ->and(fn () => $this->scoped->inboundRoutes()->remove('irt_missing'))->toThrow(RelayNotFound::class);
@@ -145,7 +145,7 @@ it('lists received mail as summaries, reads one with content and erases it', fun
         ->and($mail?->attachments[0]->url)->toStartWith('https://')
         ->and($mail?->from?->address)->toBe('ann@example.com')
         ->and($mail?->parsed())->toBeTrue()
-        ->and(Relay::forScope('ws_2')->inbound()->find($new->id))->toBeNull();
+        ->and(Relay::forProject('ws_2')->inbound()->find($new->id))->toBeNull();
 
     $this->scoped->inbound()->erase($old->id);
 
@@ -157,10 +157,10 @@ it('lists received mail as summaries, reads one with content and erases it', fun
 
 // Web Push
 
-it('gives each scope a push key of its own', function (): void {
-    $this->relay->seedScope('ws_2');
+it('gives each project a push key of its own', function (): void {
+    $this->relay->seedProject('ws_2');
 
-    expect($this->scoped->pushKey())->not->toBe(Relay::forScope('ws_2')->pushKey())
+    expect($this->scoped->pushKey())->not->toBe(Relay::forProject('ws_2')->pushKey())
         ->and($this->scoped->pushKey())->toBe($this->scoped->pushKey());
 });
 
@@ -281,7 +281,7 @@ it('records a sent mail and answers queued', function (): void {
         ->and($this->scoped->mail($mail->id)?->recipients[0]->status)->toBe('sent');
 
     $this->relay->assertMailSent();
-    $this->relay->assertMailSent(fn (OutgoingMail $sent, ?string $scope): bool => $sent->to === ['ann@example.com'] && $scope === 'ws_1');
+    $this->relay->assertMailSent(fn (OutgoingMail $sent, ?string $project): bool => $sent->to === ['ann@example.com'] && $project === 'ws_1');
     $this->relay->assertMailSentTimes(1);
     expect($this->relay->sentMail())->toHaveCount(1);
 });
@@ -323,7 +323,7 @@ it('refuses what the real service refuses a mail for', function (OutgoingMail $m
     'too many recipients' => [fn () => new OutgoingMail(new MailAddress('hello@acme.dk'), array_map(fn (int $i): string => "u{$i}@example.com", range(1, 51)), 'Hi', text: 'Hi')],
 ]);
 
-it('holds the sender to a verified domain once the scope has domains', function (): void {
+it('holds the sender to a verified domain once the project has domains', function (): void {
     $this->relay->seedDomain('ws_1', 'acme.dk', 'pending');
 
     expect(fn () => $this->scoped->sendMail(order()))->toThrow(RelayInvalid::class);

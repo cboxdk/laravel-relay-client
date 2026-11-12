@@ -50,8 +50,8 @@ class RelayWebPushChannel
         // Resolved per send, so a fake bound after this channel was built is the one used.
         $relay = $this->container->make(Relay::class);
 
-        if ($message->scope !== null) {
-            $relay = $relay->forScope($message->scope);
+        if ($message->project !== null) {
+            $relay = $relay->forProject($message->project);
         }
 
         $sent = [];
@@ -60,8 +60,8 @@ class RelayWebPushChannel
             try {
                 $sent[] = $relay->push($subscription, $message->payload, $message->ttl, $message->urgency, $message->topic);
             } catch (RelayNotFound $e) {
-                // A scope that does not exist is a mistake to hear about; a subscription that is gone is not.
-                if (str_ends_with($e->problem->type ?? '', 'scope_not_found')) {
+                // A project that does not exist is a mistake to hear about; a subscription that is gone is not.
+                if (str_ends_with($e->problem->type ?? '', 'project_not_found')) {
                     throw $e;
                 }
             }

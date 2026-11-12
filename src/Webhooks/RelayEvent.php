@@ -6,7 +6,7 @@ namespace Cbox\Relay\Client\Webhooks;
 
 /**
  * One of Relay's own events, typed: what it tells a product about mail, push, endpoints
- * and scopes. Get it from {@see IncomingWebhook::event()}.
+ * and projects. Get it from {@see IncomingWebhook::event()}.
  */
 interface RelayEvent
 {

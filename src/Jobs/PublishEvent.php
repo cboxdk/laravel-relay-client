@@ -42,7 +42,7 @@ class PublishEvent implements ShouldQueue
         public array $payload,
         public string $idempotencyKey,
         public ?string $occurredAt = null,
-        public ?string $scope = null,
+        public ?string $project = null,
         int $tries = 5,
         public array $backoff = [10, 30, 120, 600],
         public ?string $subject = null,
@@ -53,14 +53,14 @@ class PublishEvent implements ShouldQueue
     /**
      * @param  list<int>  $backoff
      */
-    public static function for(NewEvent $event, ?string $scope = null, int $tries = 5, array $backoff = [10, 30, 120, 600]): self
+    public static function for(NewEvent $event, ?string $project = null, int $tries = 5, array $backoff = [10, 30, 120, 600]): self
     {
         return new self(
             $event->type,
             $event->payload,
             $event->idempotencyKey ?? self::newIdempotencyKey(),
             $event->occurredAt?->format(DATE_ATOM),
-            $scope,
+            $project,
             $tries,
             $backoff,
             $event->subject,
@@ -76,7 +76,7 @@ class PublishEvent implements ShouldQueue
     public function handle(RelayTransport $relay): void
     {
         try {
-            $relay->publishEvent($this->event(), $this->scope);
+            $relay->publishEvent($this->event(), $this->project);
         } catch (RelayRateLimited $e) {
             if ($this->attempts() >= $this->tries) {
                 throw $e;

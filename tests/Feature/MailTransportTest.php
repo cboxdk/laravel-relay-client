@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Mail\EmailMapper;
 use Cbox\Relay\Client\Mail\RelayMailTransport;
@@ -24,7 +24,7 @@ beforeEach(function (): void {
     config()->set('mail.default', 'relay');
     config()->set('mail.mailers.relay', ['transport' => 'relay']);
     config()->set('mail.from', ['address' => 'hello@acme.dk', 'name' => 'Acme']);
-    config()->set('relay.scope', 'ws_1');
+    config()->set('relay.project', 'ws_1');
 });
 
 function fullEmail(): Email
@@ -99,47 +99,47 @@ it('knows which headers a sender may set', function (string $name, bool $allowed
 
 it('sends a Laravel mail through the fake', function (): void {
     $relay = Relay::fake();
-    $relay->seedScope('ws_1');
+    $relay->seedProject('ws_1');
 
     Mail::html('<p>Thanks</p>', fn (Message $message) => $message->to('ann@example.com')->subject('Your order'));
 
     $relay->assertMailSentTimes(1);
-    $relay->assertMailSent(fn (OutgoingMail $mail, ?string $scope): bool => $mail->from->address === 'hello@acme.dk'
+    $relay->assertMailSent(fn (OutgoingMail $mail, ?string $project): bool => $mail->from->address === 'hello@acme.dk'
         && $mail->from->name === 'Acme'
         && $mail->to === ['ann@example.com']
         && $mail->subject === 'Your order'
         && $mail->html === '<p>Thanks</p>'
-        && $scope === 'ws_1');
+        && $project === 'ws_1');
 });
 
-it('takes the scope and the idempotency key from control headers and never passes them on', function (): void {
+it('takes the project and the idempotency key from control headers and never passes them on', function (): void {
     $relay = Relay::fake();
-    $relay->seedScope('ws_1');
-    $relay->seedScope('ws_2');
+    $relay->seedProject('ws_1');
+    $relay->seedProject('ws_2');
 
     Mail::raw('Thanks', function (Message $message): void {
         $message->to('ann@example.com')->subject('Your order');
-        $message->getHeaders()->addTextHeader('X-Relay-Scope', 'ws_2')->addTextHeader('X-Relay-Idempotency-Key', 'order-mail:o_1')->addTextHeader('X-Order', 'o_1');
+        $message->getHeaders()->addTextHeader('X-Relay-Project', 'ws_2')->addTextHeader('X-Relay-Idempotency-Key', 'order-mail:o_1')->addTextHeader('X-Order', 'o_1');
     });
 
-    $relay->assertMailSent(fn (OutgoingMail $mail, ?string $scope): bool => $scope === 'ws_2' && $mail->headers === ['X-Order' => 'o_1'] && $mail->text === 'Thanks');
+    $relay->assertMailSent(fn (OutgoingMail $mail, ?string $project): bool => $project === 'ws_2' && $mail->headers === ['X-Order' => 'o_1'] && $mail->text === 'Thanks');
 
     expect($relay->calls()[0]->idempotencyKey)->toBe('order-mail:o_1');
 });
 
-it('uses the scope of the mailer over the client\'s default', function (): void {
-    config()->set('mail.mailers.relay', ['transport' => 'relay', 'scope' => 'ws_mailer']);
-    $relay = Relay::fake()->acceptAnyScope();
+it('uses the project of the mailer over the client\'s default', function (): void {
+    config()->set('mail.mailers.relay', ['transport' => 'relay', 'project' => 'ws_mailer']);
+    $relay = Relay::fake()->acceptAnyProject();
 
     Mail::raw('Thanks', fn (Message $message) => $message->to('ann@example.com')->subject('Hi'));
 
-    $relay->assertMailSent(fn (OutgoingMail $mail, ?string $scope): bool => $scope === 'ws_mailer');
+    $relay->assertMailSent(fn (OutgoingMail $mail, ?string $project): bool => $project === 'ws_mailer');
 });
 
 it('leaves the mail id and status on the sent message', function (): void {
     Event::fake([MessageSent::class]);
     $relay = Relay::fake();
-    $relay->seedScope('ws_1');
+    $relay->seedProject('ws_1');
 
     Mail::raw('Thanks', fn (Message $message) => $message->to('ann@example.com')->subject('Hi'));
 
@@ -153,7 +153,7 @@ it('posts the structured body over HTTP', function (): void {
     Mail::mailer('relay')->getSymfonyTransport()->send(fullEmail());
 
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://relay.test/v1/mail'
-        && $request->hasHeader('Relay-Scope', 'ws_1')
+        && $request->hasHeader('Relay-Project', 'ws_1')
         && json_decode($request->body(), true) === [
             'from' => ['address' => 'hello@acme.dk', 'name' => 'Acme'],
             'to' => ['ann@example.com', 'bob@example.com'],
@@ -167,16 +167,16 @@ it('posts the structured body over HTTP', function (): void {
         ]);
 });
 
-it('throws what Relay refuses, and needs a scope like any other send', function (): void {
+it('throws what Relay refuses, and needs a project like any other send', function (): void {
     $relay = Relay::fake();
-    $relay->seedScope('ws_1');
+    $relay->seedProject('ws_1');
     $relay->seedDomain('ws_1', 'other.dk');
 
     expect(fn () => Mail::raw('Thanks', fn (Message $message) => $message->to('ann@example.com')->subject('Hi')))->toThrow(RelayInvalid::class);
 
-    config()->set('relay.scope', null);
+    config()->set('relay.project', null);
 
-    expect(fn () => Mail::raw('Thanks', fn (Message $message) => $message->to('ann@example.com')->subject('Hi')))->toThrow(RelayScopeRequired::class);
+    expect(fn () => Mail::raw('Thanks', fn (Message $message) => $message->to('ann@example.com')->subject('Hi')))->toThrow(RelayProjectRequired::class);
 });
 
 it('refuses a mail without a sender', function (): void {

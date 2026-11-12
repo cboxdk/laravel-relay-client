@@ -10,8 +10,8 @@ use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Exceptions\RelayForbidden;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Exceptions\RelayRateLimited;
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
 use Cbox\Relay\Client\Exceptions\RelayTooLarge;
 use Cbox\Relay\Client\Exceptions\RelayUnauthorized;
 use Cbox\Relay\Client\Exceptions\RelayUnavailable;
@@ -35,8 +35,8 @@ class Problems
             $status === 404 => new RelayNotFound($message, $problem),
             $status === 409 => new RelayConflict($message, $problem),
             $status === 413 => new RelayTooLarge($message, $problem),
-            // Relay's own word for what the manager refuses before sending: no scope was named.
-            $status === 422 && str_ends_with($problem->type, 'scope_required') => new RelayScopeRequired($message, $problem),
+            // Relay's own word for what the manager refuses before sending: no project was named.
+            $status === 422 && str_ends_with($problem->type, 'project_required') => new RelayProjectRequired($message, $problem),
             $status === 422 => new RelayInvalid($message, $problem->errors, $problem),
             $status === 429 => new RelayRateLimited($message, self::retryAfter($response), $problem),
             $status >= 500 => new RelayUnavailable($message, $problem),

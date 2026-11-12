@@ -1,27 +1,27 @@
 ---
 title: Webhook endpoints
-description: Declare a scope's event types, register its customers' endpoints, and read events and what became of each delivery.
+description: Declare a project's event types, register its customers' endpoints, and read events and what became of each delivery.
 weight: 27
 ---
 
 # Webhook endpoints
 
-Everything here acts for one scope: use `Relay::forScope($ref)` or `relay.scope`.
+Everything here acts for one project: use `Relay::forProject($ref)` or `relay.project`.
 
 ## Event types
 
 ```php
 use Cbox\Relay\Client\Data\EventType;
 
-Relay::forScope($ref)->eventTypes()->declare([
+Relay::forProject($ref)->eventTypes()->declare([
     'order.paid',
     new EventType('order.refunded', category: 'Orders', name: 'Order refunded', example: ['id' => 'o_1']),
 ]);
 
-Relay::forScope($ref)->eventTypes()->all();   // list<EventType>
+Relay::forProject($ref)->eventTypes()->all();   // list<EventType>
 ```
 
-`declare()` makes the scope's types exactly the ones given: a type left out is removed.
+`declare()` makes the project's types exactly the ones given: a type left out is removed.
 It is safe to repeat, so run it on every deploy. A type that was not declared can be
 neither published nor subscribed to. Names like Relay's own events (`mail.received` and
 the like) are refused.
@@ -33,7 +33,7 @@ Needs `events:publish` to declare and `events:read` to list.
 ```php
 use Cbox\Relay\Client\Data\Envelope;
 
-$endpoints = Relay::forScope($ref)->endpoints();
+$endpoints = Relay::forProject($ref)->endpoints();
 
 $endpoint = $endpoints->register('https://customer.example/hooks', ['order.*'], description: 'Orders');
 $endpoint->secret;   // the signing secret: only on this answer. Hand it to the customer now.
@@ -67,7 +67,7 @@ Needs `endpoints:manage`.
 ## Events and deliveries
 
 ```php
-$events = Relay::forScope($ref)->events();
+$events = Relay::forProject($ref)->events();
 
 $page = $events->list(type: 'order.paid', limit: 20);   // Page<Event>, summaries, newest first
 $event = $events->find($id);                             // ?Event with payload and deliveries

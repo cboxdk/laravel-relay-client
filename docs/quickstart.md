@@ -1,6 +1,6 @@
 ---
 title: Quickstart
-description: From composer require to a registered scope, a published event and a test that asserts it.
+description: From composer require to a registered project, a published event and a test that asserts it.
 weight: 2
 ---
 
@@ -31,13 +31,13 @@ $me->can('events:publish');     // true
 
 A wrong or revoked key throws `RelayUnauthorized`.
 
-## 3. Register a workspace as a scope
+## 3. Register a workspace as a project
 
 ```php
-$scope = Relay::scopes()->put($workspace->id, name: $workspace->name);
+$project = Relay::projects()->put($workspace->id, name: $workspace->name);
 
-$scope->id;        // 'scp_…'
-$scope->created;   // true the first time, false after
+$project->id;        // 'prj_…'
+$project->created;   // true the first time, false after
 ```
 
 `put` is idempotent. Call it whenever a workspace is created or renamed.
@@ -45,7 +45,7 @@ $scope->created;   // true the first time, false after
 ## 4. Declare what you publish, and where it goes
 
 ```php
-$relay = Relay::forScope($workspace->id);
+$relay = Relay::forProject($workspace->id);
 
 $relay->eventTypes()->declare(['order.paid', 'order.refunded']);   // on every deploy
 
@@ -56,7 +56,7 @@ $endpoint->secret;   // given once: hand it to the customer
 ## 5. Publish
 
 ```php
-Relay::forScope($workspace->id)->publish('order.paid', ['id' => $order->id, 'total' => 4200]);
+Relay::forProject($workspace->id)->publish('order.paid', ['id' => $order->id, 'total' => 4200]);
 ```
 
 This does not call Relay in your request. It queues a job that makes the call after the
@@ -69,7 +69,7 @@ retries publish once. Run a queue worker. See
 ```php
 use Cbox\Relay\Client\Data\NewEvent;
 
-$relay = Relay::fake()->acceptAnyScope();
+$relay = Relay::fake()->acceptAnyProject();
 
 $this->post("/orders/{$order->id}/pay")->assertOk();
 

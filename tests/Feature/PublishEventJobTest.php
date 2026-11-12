@@ -8,8 +8,8 @@ use Cbox\Relay\Client\Data\NewEvent;
 use Cbox\Relay\Client\Exceptions\RelayForbidden;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Exceptions\RelayRateLimited;
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
 use Cbox\Relay\Client\Exceptions\RelayTooLarge;
 use Cbox\Relay\Client\Exceptions\RelayUnauthorized;
 use Cbox\Relay\Client\Exceptions\RelayUnavailable;
@@ -48,7 +48,7 @@ function relayProblem(int $status, string $type): array
 it('queues a job instead of calling Relay in the caller\'s request', function (): void {
     Bus::fake();
 
-    $key = Relay::forScope('ws_1')->publish('order.paid', ['id' => 'o_1'], occurredAt: new DateTimeImmutable('2026-11-12T10:00:00+01:00'));
+    $key = Relay::forProject('ws_1')->publish('order.paid', ['id' => 'o_1'], occurredAt: new DateTimeImmutable('2026-11-12T10:00:00+01:00'));
 
     Http::assertNothingSent();
 
@@ -57,7 +57,7 @@ it('queues a job instead of calling Relay in the caller\'s request', function ()
         && $job->idempotencyKey === $key
         && str_starts_with($job->idempotencyKey, 'pub_')
         && $job->occurredAt === '2026-11-12T10:00:00+01:00'
-        && $job->scope === 'ws_1'
+        && $job->project === 'ws_1'
         && $job->afterCommit === true
         && $job->connection === null
         && $job->queue === null
@@ -72,7 +72,7 @@ it('keeps the caller\'s own idempotency key and the configured queue, connection
     config()->set('relay.publish.tries', 8);
     config()->set('relay.publish.backoff', [5, 60]);
 
-    $key = Relay::forScope('ws_1')->publish('order.paid', [], 'order.paid:o_1');
+    $key = Relay::forProject('ws_1')->publish('order.paid', [], 'order.paid:o_1');
 
     expect($key)->toBe('order.paid:o_1');
 
@@ -87,15 +87,15 @@ it('stamps an event without a time with the moment publish was called', function
     Bus::fake();
     $this->travelTo('2026-11-12 10:00:00');
 
-    Relay::forScope('ws_1')->publish('order.paid');
+    Relay::forProject('ws_1')->publish('order.paid');
 
     Bus::assertDispatched(PublishEvent::class, fn (PublishEvent $job): bool => $job->occurredAt === '2026-11-12T10:00:00+00:00');
 });
 
-it('dispatches nothing when the scope is missing', function (): void {
+it('dispatches nothing when the project is missing', function (): void {
     Bus::fake();
 
-    expect(fn () => Relay::publish('order.paid'))->toThrow(RelayScopeRequired::class);
+    expect(fn () => Relay::publish('order.paid'))->toThrow(RelayProjectRequired::class);
 
     Bus::assertNothingDispatched();
 });
@@ -113,12 +113,12 @@ it('calls Relay inline with relay.publish.sync', function (): void {
     config()->set('relay.publish.sync', true);
     Http::fake(['relay.test/v1/events' => Http::response(['id' => 'evt_1', 'deliveries' => 2, 'duplicate' => false], 202)]);
 
-    $key = Relay::forScope('ws_1')->publish('order.paid', ['id' => 'o_1']);
+    $key = Relay::forProject('ws_1')->publish('order.paid', ['id' => 'o_1']);
 
     Bus::assertNothingDispatched();
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
         && $request->url() === 'https://relay.test/v1/events'
-        && $request->hasHeader('Relay-Scope', 'ws_1')
+        && $request->hasHeader('Relay-Project', 'ws_1')
         && $request['idempotency_key'] === $key);
 });
 
@@ -126,7 +126,7 @@ it('always calls Relay inline from publishNow and answers what Relay said', func
     Bus::fake();
     Http::fake(['relay.test/v1/events' => Http::response(['id' => 'evt_1', 'deliveries' => 2, 'duplicate' => true], 202)]);
 
-    $published = Relay::forScope('ws_1')->publishNow('order.paid', ['id' => 'o_1'], 'order.paid:o_1');
+    $published = Relay::forProject('ws_1')->publishNow('order.paid', ['id' => 'o_1'], 'order.paid:o_1');
 
     expect($published->id)->toBe('evt_1')->and($published->deliveries)->toBe(2)->and($published->duplicate)->toBeTrue();
     Bus::assertNothingDispatched();
@@ -140,7 +140,7 @@ it('makes the HTTP call from the job with the key fixed at dispatch', function (
     $job->assertNotFailed();
     $job->assertNotReleased();
 
-    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Relay-Scope', 'ws_1')
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Relay-Project', 'ws_1')
         && $request['type'] === 'order.paid'
         && $request['payload'] === ['id' => 'o_1']
         && $request['idempotency_key'] === 'order.paid:o_1');
@@ -204,5 +204,5 @@ it('survives the queue: the job serializes and comes back the same', function ()
 
     expect($job)->toBeInstanceOf(PublishEvent::class)
         ->and($job->event())->toEqual(new NewEvent('order.paid', ['id' => 'o_1'], 'order.paid:o_1'))
-        ->and($job->scope)->toBe('ws_1');
+        ->and($job->project)->toBe('ws_1');
 });

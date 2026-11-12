@@ -9,20 +9,19 @@ products; this package is how a Laravel app talks to its API.
   endpoints; read events and what became of each delivery.
 - **Mail.** Sending domains, the suppression list, `Relay::sendMail()`, and a `relay`
   mail transport so `MAIL_MAILER=relay` works.
-- **Web Push.** The scope's key, browser subscriptions, `Relay::push()`, and a Laravel
+- **Web Push.** The project's key, browser subscriptions, `Relay::push()`, and a Laravel
   notification channel.
 - **Inbound mail.** Claim addresses, read received mail, erase it.
 - **The judge.** Score a mail or a template without sending it.
-- **Inbound webhooks.** Sources that take a provider's webhooks for a scope.
+- **Inbound webhooks.** Sources that take a provider's webhooks for a project.
 - **Erasure.** Publish with a `subject`; `Relay::eraseSubject()` forgets that person.
 - **Webhooks from Relay.** A `relay.webhook` middleware that verifies a delivery, and
   typed objects for Relay's own events.
-- **Scopes, whoami, the delivery log**, typed errors, and **a fake** for your tests.
+- **Projects, whoami, the delivery log**, typed errors, and **a fake** for your tests.
 
-The client covers Relay's API. What the service behind it runs is Relay's own: its API
-guides say the mail servers are not running yet, so today no mail leaves Relay and none
-arrives. See Relay's own status, and [BUILD-STATUS.md](BUILD-STATUS.md) for what this
-package has and has not verified.
+The client covers Relay's API. Relay's mail servers run since 12 November 2026: mail sent
+through Relay is delivered, and mail to a receiving address arrives. See
+[BUILD-STATUS.md](BUILD-STATUS.md) for what this package has and has not verified.
 
 Documentation: [docs/index.md](docs/index.md). Start with the
 [quickstart](docs/quickstart.md).
@@ -36,7 +35,7 @@ composer require cboxdk/laravel-relay-client
 ```dotenv
 RELAY_URL=https://api.cboxrelay.com
 RELAY_KEY=rlk_live_…
-RELAY_SCOPE=workspace-42        # optional: the scope every call acts for
+RELAY_PROJECT=workspace-42        # optional: the project every call acts for
 ```
 
 With `RELAY_URL` or `RELAY_KEY` empty every call throws `RelayNotConfigured`. Publish
@@ -50,10 +49,10 @@ the config with `php artisan vendor:publish --tag=relay-config`; every key is in
 ```php
 use Cbox\Relay\Client\Facades\Relay;
 
-// One scope per workspace, under your own id. Safe to call every time.
-Relay::scopes()->put($workspace->id, name: $workspace->name);
+// One project per workspace, under your own id. Safe to call every time.
+Relay::projects()->put($workspace->id, name: $workspace->name);
 
-$relay = Relay::forScope($workspace->id);
+$relay = Relay::forProject($workspace->id);
 
 // Webhooks out
 $relay->eventTypes()->declare(['order.paid', 'order.refunded']);
@@ -81,9 +80,9 @@ $relay->judge(html: $html, subject: 'Welcome')->score('phishing');
 $relay->inbound()->list();
 ```
 
-Most calls act for one scope. Without one (`forScope()` or `RELAY_SCOPE`) they throw
-`RelayScopeRequired` before anything is sent; with a scope key, set
-`RELAY_SCOPE_KEY=true`.
+Most calls act for one project. Without one (`forProject()` or `RELAY_PROJECT`) they throw
+`RelayProjectRequired` before anything is sent; with a project key, set
+`RELAY_PROJECT_KEY=true`.
 
 Relay's errors are typed: `RelayUnauthorized`, `RelayForbidden`, `RelayNotFound`,
 `RelayConflict` (`->type()` names Relay's reason, e.g. `mail_not_held`), `RelayTooLarge`, `RelayInvalid` (`->errors`), `RelayRateLimited`
@@ -115,7 +114,7 @@ Route::post('/hooks/relay', function (Request $request) {
 ```php
 use Cbox\Relay\Client\Facades\Relay;
 
-$relay = Relay::fake()->acceptAnyScope();   // publish() records at once: no queue, no HTTP
+$relay = Relay::fake()->acceptAnyProject();   // publish() records at once: no queue, no HTTP
 
 $this->post("/orders/{$order->id}/pay");
 

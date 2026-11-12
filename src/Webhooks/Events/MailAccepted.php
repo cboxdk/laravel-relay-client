@@ -16,7 +16,7 @@ readonly class MailAccepted implements RelayEvent
 {
     public function __construct(
         public string $id,
-        public string $scopeId,
+        public string $projectId,
         public string $from,
         public int $recipients = 0,
         public int $suppressed = 0,
@@ -33,7 +33,7 @@ readonly class MailAccepted implements RelayEvent
     {
         return new self(
             id: Payload::string($data, 'id'),
-            scopeId: Payload::string($data, 'scope_id'),
+            projectId: Payload::string($data, 'project_id'),
             from: Payload::string($data, 'from'),
             recipients: Payload::int($data, 'recipients'),
             suppressed: Payload::int($data, 'suppressed'),

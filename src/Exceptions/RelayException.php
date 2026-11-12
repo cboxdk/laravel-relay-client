@@ -25,7 +25,7 @@ class RelayException extends RuntimeException
 
     /**
      * Relay's own name for the problem, the stable part to branch on: `mail_not_held`,
-     * `scope_suspended`, `idempotency_key_reused`. It is the last segment of the problem
+     * `project_suspended`, `idempotency_key_reused`. It is the last segment of the problem
      * document's `type`; null when there was no problem document or it named none.
      */
     public function type(): ?string

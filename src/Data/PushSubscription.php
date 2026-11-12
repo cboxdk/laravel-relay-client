@@ -7,7 +7,7 @@ namespace Cbox\Relay\Client\Data;
 use DateTimeImmutable;
 
 /**
- * A browser Relay remembers for a scope. `$ref` is your own reference for whose browser
+ * A browser Relay remembers for a project. `$ref` is your own reference for whose browser
  * it is; `$service` is the push service's host. The endpoint itself is never given back.
  *
  * `$created` is true only on the answer that added a new browser (Relay answered 201).

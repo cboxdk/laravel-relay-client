@@ -8,7 +8,7 @@ use Cbox\Relay\Client\Exceptions\RelayMalformedResponse;
 
 /**
  * The answer to `GET /v1/whoami`: whose key this is, on which environment, for which
- * scope the call acted (null for an organization key acting for the organization) and
+ * project the call acted (null for an organization key acting for the organization) and
  * what the key may do.
  */
 readonly class Identity
@@ -17,7 +17,7 @@ readonly class Identity
         public Organization $organization,
         public Environment $environment,
         public ApiKey $key,
-        public ?ScopeReference $scope = null,
+        public ?ProjectReference $project = null,
     ) {}
 
     /**
@@ -27,20 +27,20 @@ readonly class Identity
     {
         $environment = Environment::tryFrom(Payload::string($data, 'environment'))
             ?? throw new RelayMalformedResponse("Cbox Relay answered with a body this client cannot read: 'environment' should be live or test.");
-        $scope = Payload::nullableMap($data, 'scope');
+        $project = Payload::nullableMap($data, 'project');
 
         return new self(
             Organization::fromArray(Payload::map($data, 'organization')),
             $environment,
             ApiKey::fromArray(Payload::map($data, 'key')),
-            $scope === null ? null : ScopeReference::fromArray($scope),
+            $project === null ? null : ProjectReference::fromArray($project),
         );
     }
 
-    /** Whether the call acted for one scope rather than for the whole organization. */
+    /** Whether the call acted for one project rather than for the whole organization. */
     public function scoped(): bool
     {
-        return $this->scope !== null;
+        return $this->project !== null;
     }
 
     public function can(string $ability): bool
@@ -61,7 +61,7 @@ readonly class Identity
         return [
             'organization' => $this->organization->toArray(),
             'environment' => $this->environment->value,
-            'scope' => $this->scope?->toArray(),
+            'project' => $this->project?->toArray(),
             'key' => $this->key->toArray(),
         ];
     }

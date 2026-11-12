@@ -6,7 +6,7 @@ weight: 30
 
 # Cookbook
 
-- [Register workspaces as scopes](register-workspaces-as-scopes.md)
+- [Register workspaces as projects](register-workspaces-as-projects.md)
 - [Page through the delivery log](page-through-the-delivery-log.md)
 - [Offer webhooks to your customers](offer-webhooks-to-your-customers.md)
 - [React to bounces and complaints](react-to-bounces-and-complaints.md)

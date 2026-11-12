@@ -7,7 +7,7 @@ use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
-use Cbox\Relay\Client\Exceptions\RelayScopeRequired;
+use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Exceptions\RelayUnavailable;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Testing\Operation;
@@ -33,10 +33,10 @@ describe('over HTTP', function (): void {
             'relay.test/v1/mail/msg_1/discard' => Http::response(mailBody('blocked', 'Discarded.'), 200),
         ]);
 
-        expect(Relay::forScope('ws_1')->releaseMail('msg_1')->status)->toBe('queued')
-            ->and(Relay::forScope('ws_1')->discardMail('msg_1')->reason)->toBe('Discarded.');
+        expect(Relay::forProject('ws_1')->releaseMail('msg_1')->status)->toBe('queued')
+            ->and(Relay::forProject('ws_1')->discardMail('msg_1')->reason)->toBe('Discarded.');
 
-        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->url() === 'https://relay.test/v1/mail/msg_1/release' && $request->hasHeader('Relay-Scope', 'ws_1') && $request->body() === '');
+        Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->url() === 'https://relay.test/v1/mail/msg_1/release' && $request->hasHeader('Relay-Project', 'ws_1') && $request->body() === '');
         Http::assertSent(fn (Request $request): bool => $request->method() === 'POST' && $request->url() === 'https://relay.test/v1/mail/msg_1/discard');
     });
 
@@ -44,7 +44,7 @@ describe('over HTTP', function (): void {
         Http::fake(['relay.test/v1/mail/msg_1/release' => Http::response(['type' => 'https://cboxrelay.com/problems/mail_not_held', 'title' => 'Conflict', 'status' => 409, 'detail' => 'The mail is not held.'], 409)]);
 
         try {
-            Relay::forScope('ws_1')->releaseMail('msg_1');
+            Relay::forProject('ws_1')->releaseMail('msg_1');
             $this->fail('Nothing was thrown.');
         } catch (RelayConflict $e) {
             expect($e->type())->toBe('mail_not_held')->and($e->status())->toBe(409)->and($e->getMessage())->toContain('The mail is not held.');
@@ -54,13 +54,13 @@ describe('over HTTP', function (): void {
     it('does not turn a missing mail into null', function (): void {
         Http::fake(['relay.test/v1/mail/msg_9/discard' => Http::response(['type' => 'https://cboxrelay.com/problems/mail_not_found', 'title' => 'Not found', 'status' => 404], 404)]);
 
-        Relay::forScope('ws_1')->discardMail('msg_9');
+        Relay::forProject('ws_1')->discardMail('msg_9');
     })->throws(RelayNotFound::class);
 });
 
 it('names the problem type, or nothing when there is none', function (): void {
     Http::fake(['relay.test/v1/whoami' => Http::sequence()
-        ->push(['type' => 'https://cboxrelay.com/problems/scope_suspended', 'title' => 'Forbidden', 'status' => 403], 403)
+        ->push(['type' => 'https://cboxrelay.com/problems/project_suspended', 'title' => 'Forbidden', 'status' => 403], 403)
         ->push('<html>', 502)
         ->push(['type' => 'idempotency_in_progress', 'title' => 'Conflict', 'status' => 409], 409)]);
 
@@ -74,15 +74,15 @@ it('names the problem type, or nothing when there is none', function (): void {
         }
     }
 
-    expect($types)->toBe(['scope_suspended', null, 'idempotency_in_progress'])
+    expect($types)->toBe(['project_suspended', null, 'idempotency_in_progress'])
         ->and((new RelayUnavailable)->type())->toBeNull();
 });
 
 describe('on the fake', function (): void {
     beforeEach(function (): void {
         $this->relay = Relay::fake();
-        $this->relay->seedScope('ws_1');
-        $this->scoped = Relay::forScope('ws_1');
+        $this->relay->seedProject('ws_1');
+        $this->scoped = Relay::forProject('ws_1');
         $this->mail = $this->scoped->sendMail(new OutgoingMail(new MailAddress('hello@acme.dk'), ['ann@example.com', 'bob@example.com'], 'Hi', text: 'Hi'));
     });
 
@@ -136,13 +136,13 @@ describe('on the fake', function (): void {
             ->and(fn () => $this->relay->assertMailDiscarded($this->mail->id))->toThrow(AssertionFailedError::class);
     });
 
-    it('answers 404 for a mail the scope does not have and needs a scope', function (): void {
-        $this->relay->seedScope('ws_2');
+    it('answers 404 for a mail the project does not have and needs a project', function (): void {
+        $this->relay->seedProject('ws_2');
         $this->relay->markMail($this->mail->id, 'quarantined');
 
         expect(fn () => $this->scoped->releaseMail('msg_missing'))->toThrow(RelayNotFound::class)
-            ->and(fn () => Relay::forScope('ws_2')->discardMail($this->mail->id))->toThrow(RelayNotFound::class)
-            ->and(fn () => Relay::releaseMail($this->mail->id))->toThrow(RelayScopeRequired::class)
-            ->and(fn () => Relay::discardMail($this->mail->id))->toThrow(RelayScopeRequired::class);
+            ->and(fn () => Relay::forProject('ws_2')->discardMail($this->mail->id))->toThrow(RelayNotFound::class)
+            ->and(fn () => Relay::releaseMail($this->mail->id))->toThrow(RelayProjectRequired::class)
+            ->and(fn () => Relay::discardMail($this->mail->id))->toThrow(RelayProjectRequired::class);
     });
 });

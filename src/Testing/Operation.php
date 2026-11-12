@@ -8,9 +8,9 @@ namespace Cbox\Relay\Client\Testing;
 enum Operation: string
 {
     case Whoami = 'whoami';
-    case PutScope = 'put_scope';
-    case FindScope = 'find_scope';
-    case ListScopes = 'list_scopes';
+    case PutProject = 'put_project';
+    case FindProject = 'find_project';
+    case ListProjects = 'list_projects';
     case ListDeliveries = 'list_deliveries';
 
     case ListEventTypes = 'list_event_types';

@@ -5,9 +5,9 @@ declare(strict_types=1);
 use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Facades\Relay;
+use Cbox\Relay\Client\Projects;
 use Cbox\Relay\Client\Relay as RelayManager;
 use Cbox\Relay\Client\RelayConfig;
-use Cbox\Relay\Client\Scopes;
 use Cbox\Relay\Client\Testing\FakeRelay;
 use Cbox\Relay\Client\Testing\Operation;
 use Cbox\Relay\Client\Testing\RecordedCall;
@@ -26,22 +26,22 @@ it('swaps the fake in for the facade, the manager and the contract', function ()
 });
 
 it('swaps the fake in after the facade was already used', function (): void {
-    Http::fake(['relay.test/v1/scopes' => Http::response(['data' => [], 'next_cursor' => null])]);
-    Relay::scopes()->list();
+    Http::fake(['relay.test/v1/projects' => Http::response(['data' => [], 'next_cursor' => null])]);
+    Relay::projects()->list();
 
     $fake = Relay::fake();
-    Relay::scopes()->put('ws_1');
+    Relay::projects()->put('ws_1');
 
     Http::assertSentCount(1);
-    $fake->assertScopePut('ws_1');
+    $fake->assertProjectPut('ws_1');
 });
 
 it('takes a fake that was prepared beforehand', function (): void {
     $prepared = new FakeRelay;
-    $prepared->seedScope('ws_1', 'Acme');
+    $prepared->seedProject('ws_1', 'Acme');
 
     expect(Relay::fake($prepared))->toBe($prepared)
-        ->and(Relay::scopes()->find('ws_1')?->name)->toBe('Acme');
+        ->and(Relay::projects()->find('ws_1')?->name)->toBe('Acme');
 });
 
 it('fakes through the trait', function (): void {
@@ -58,29 +58,29 @@ it('reads whoami', function (): void {
     expect(Relay::whoami()->organization->id)->toBe('org_fake');
 });
 
-it('puts, finds and lists scopes', function (): void {
+it('puts, finds and lists projects', function (): void {
     $fake = $this->fakeRelay();
 
-    $created = Relay::scopes()->put('ws_1', name: 'Acme', settings: ['region' => 'eu']);
-    $again = Relay::scopes()->put('ws_1', name: 'Acme', settings: ['region' => 'eu']);
-    Relay::scopes()->put('ws_2', idempotencyKey: 'k2');
+    $created = Relay::projects()->put('ws_1', name: 'Acme', settings: ['region' => 'eu']);
+    $again = Relay::projects()->put('ws_1', name: 'Acme', settings: ['region' => 'eu']);
+    Relay::projects()->put('ws_2', idempotencyKey: 'k2');
 
-    expect(Relay::scopes())->toBeInstanceOf(Scopes::class)
+    expect(Relay::projects())->toBeInstanceOf(Projects::class)
         ->and($created->created)->toBeTrue()
         ->and($again->created)->toBeFalse()
         ->and($again->id)->toBe($created->id)
-        ->and(Relay::scopes()->find('ws_1')?->settings)->toBe(['region' => 'eu'])
-        ->and(Relay::scopes()->find($created->id)?->externalRef)->toBe('ws_1')
-        ->and(Relay::scopes()->find('nope'))->toBeNull()
-        ->and(Relay::scopes()->list()->items)->toHaveCount(2);
+        ->and(Relay::projects()->find('ws_1')?->settings)->toBe(['region' => 'eu'])
+        ->and(Relay::projects()->find($created->id)?->externalRef)->toBe('ws_1')
+        ->and(Relay::projects()->find('nope'))->toBeNull()
+        ->and(Relay::projects()->list()->items)->toHaveCount(2);
 
-    $page = Relay::scopes()->list(limit: 1);
+    $page = Relay::projects()->list(limit: 1);
 
     expect($page->items[0]->externalRef)->toBe('ws_1')
-        ->and(Relay::scopes()->list(limit: 1, cursor: $page->nextCursor)->items[0]->externalRef)->toBe('ws_2');
+        ->and(Relay::projects()->list(limit: 1, cursor: $page->nextCursor)->items[0]->externalRef)->toBe('ws_2');
 
-    $fake->assertScopePutTimes('ws_1', 2);
-    $fake->assertScopePut('ws_2', fn (RecordedCall $call): bool => $call->idempotencyKey === 'k2' && $call->actingScope === null);
+    $fake->assertProjectPutTimes('ws_1', 2);
+    $fake->assertProjectPut('ws_2', fn (RecordedCall $call): bool => $call->idempotencyKey === 'k2' && $call->actingProject === null);
 });
 
 it('reads the delivery log with a filter, a limit and a cursor', function (): void {
@@ -100,60 +100,60 @@ it('reads the delivery log with a filter, a limit and a cursor', function (): vo
     $fake->assertDeliveriesRead(fn (RecordedCall $call): bool => $call->filter?->status === 'failed' && $call->limit === 1 && $call->cursor !== null);
 });
 
-it('acts for a scope on every call of the client forScope returns', function (): void {
+it('acts for a project on every call of the client forProject returns', function (): void {
     $fake = $this->fakeRelay();
     $fake->seedDeliveryFor('ws_1', 'delivered');
     $fake->seedDeliveryFor('ws_2', 'delivered');
 
-    $scoped = Relay::forScope('ws_1');
+    $scoped = Relay::forProject('ws_1');
 
     expect($scoped)->toBeInstanceOf(RelayManager::class)
-        ->and($scoped->scope())->toBe('ws_1')
-        ->and($scoped->whoami()->scope?->externalRef)->toBe('ws_1')
+        ->and($scoped->project())->toBe('ws_1')
+        ->and($scoped->whoami()->project?->externalRef)->toBe('ws_1')
         ->and($scoped->deliveries())->toHaveCount(1)
-        ->and($scoped->scopes()->find('ws_2')?->externalRef)->toBe('ws_2')
-        ->and($scoped->scopes()->list()->items)->toHaveCount(2)
-        ->and(Relay::scope())->toBeNull()
+        ->and($scoped->projects()->find('ws_2')?->externalRef)->toBe('ws_2')
+        ->and($scoped->projects()->list()->items)->toHaveCount(2)
+        ->and(Relay::project())->toBeNull()
         ->and(Relay::deliveries())->toHaveCount(2);
 
-    $scoped->scopes()->put('ws_3');
+    $scoped->projects()->put('ws_3');
 
-    $fake->assertActedForScope('ws_1');
-    $fake->assertScopePut('ws_3', fn (RecordedCall $call): bool => $call->actingScope === 'ws_1');
+    $fake->assertActedForProject('ws_1');
+    $fake->assertProjectPut('ws_3', fn (RecordedCall $call): bool => $call->actingProject === 'ws_1');
 
-    expect(array_map(fn (RecordedCall $call): ?string => $call->actingScope, $fake->calls()))
+    expect(array_map(fn (RecordedCall $call): ?string => $call->actingProject, $fake->calls()))
         ->toBe(['ws_1', 'ws_1', 'ws_1', 'ws_1', null, 'ws_1']);
 });
 
-it('acts for the configured default scope until told otherwise', function (): void {
-    config(['relay.scope' => 'ws_1']);
+it('acts for the configured default project until told otherwise', function (): void {
+    config(['relay.project' => 'ws_1']);
 
     $fake = $this->fakeRelay();
-    $fake->seedScope('ws_1');
-    $fake->seedScope('ws_2');
+    $fake->seedProject('ws_1');
+    $fake->seedProject('ws_2');
 
-    expect(Relay::scope())->toBe('ws_1')
-        ->and(Relay::whoami()->scope?->externalRef)->toBe('ws_1')
-        ->and(Relay::forScope('ws_2')->whoami()->scope?->externalRef)->toBe('ws_2')
-        ->and(Relay::withoutScope()->whoami()->scope)->toBeNull()
-        ->and(Relay::withoutScope()->scope())->toBeNull();
+    expect(Relay::project())->toBe('ws_1')
+        ->and(Relay::whoami()->project?->externalRef)->toBe('ws_1')
+        ->and(Relay::forProject('ws_2')->whoami()->project?->externalRef)->toBe('ws_2')
+        ->and(Relay::withoutProject()->whoami()->project)->toBeNull()
+        ->and(Relay::withoutProject()->project())->toBeNull();
 });
 
-it('treats an empty scope as no scope', function (): void {
-    config(['relay.scope' => '  ']);
+it('treats an empty project as no project', function (): void {
+    config(['relay.project' => '  ']);
     $this->fakeRelay();
 
-    expect(Relay::scope())->toBeNull()
-        ->and(Relay::forScope('')->scope())->toBeNull()
-        ->and((new RelayManager(new FakeRelay, ''))->scope())->toBeNull();
+    expect(Relay::project())->toBeNull()
+        ->and(Relay::forProject('')->project())->toBeNull()
+        ->and((new RelayManager(new FakeRelay, ''))->project())->toBeNull();
 });
 
-it('sends the scope as Relay-Scope over HTTP', function (): void {
+it('sends the project as Relay-Project over HTTP', function (): void {
     Http::fake(['relay.test/v1/deliveries' => Http::response(['data' => [], 'next_cursor' => null])]);
 
-    Relay::forScope('ws_1')->deliveries();
+    Relay::forProject('ws_1')->deliveries();
 
-    Http::assertSent(fn ($request): bool => $request->hasHeader('Relay-Scope', 'ws_1'));
+    Http::assertSent(fn ($request): bool => $request->hasHeader('Relay-Project', 'ws_1'));
 });
 
 it('publishes its config', function (): void {
@@ -167,10 +167,10 @@ it('publishes its config', function (): void {
 it('ships the documented defaults', function (): void {
     $config = require __DIR__.'/../../config/relay.php';
 
-    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'scope', 'scope_key', 'publish', 'webhook'])
+    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'project', 'project_key', 'publish', 'webhook'])
         ->and($config['timeout'])->toBe(5.0)
         ->and($config['connect_timeout'])->toBe(2.0)
-        ->and($config['scope_key'])->toBeFalse()
+        ->and($config['project_key'])->toBeFalse()
         ->and($config['publish'])->toBe(['sync' => false, 'connection' => null, 'queue' => null, 'tries' => 5, 'backoff' => [10, 30, 120, 600]])
         ->and($config['webhook'])->toBe(['secret' => null, 'previous_secret' => null, 'tolerance' => 300]);
 });
@@ -179,7 +179,7 @@ it('reads the publish and webhook settings, falling back when they are unusable'
     $config = app(RelayConfig::class);
 
     expect($config->publishSync())->toBeFalse()
-        ->and($config->scopeKey())->toBeFalse()
+        ->and($config->projectKey())->toBeFalse()
         ->and($config->publishConnection())->toBeNull()
         ->and($config->publishQueue())->toBeNull()
         ->and($config->publishTries())->toBe(5)
@@ -189,10 +189,10 @@ it('reads the publish and webhook settings, falling back when they are unusable'
 
     config()->set('relay.publish', ['sync' => 'true', 'connection' => ' sqs ', 'queue' => 'relay', 'tries' => 0, 'backoff' => '5, 15,x']);
     config()->set('relay.webhook', ['secret' => 'new', 'previous_secret' => 'old', 'tolerance' => -1]);
-    config()->set('relay.scope_key', '1');
+    config()->set('relay.project_key', '1');
 
     expect($config->publishSync())->toBeTrue()
-        ->and($config->scopeKey())->toBeTrue()
+        ->and($config->projectKey())->toBeTrue()
         ->and($config->publishConnection())->toBe('sqs')
         ->and($config->publishQueue())->toBe('relay')
         ->and($config->publishTries())->toBe(5)
@@ -201,8 +201,8 @@ it('reads the publish and webhook settings, falling back when they are unusable'
         ->and($config->webhookTolerance())->toBe(300);
 });
 
-it('reads a scope that has no name', function (): void {
-    Http::fake(['relay.test/v1/scopes/ws_1' => Http::response(['id' => 'scp_1', 'external_ref' => 'ws_1', 'name' => null, 'settings' => [], 'suspended_at' => null, 'created_at' => '2026-11-12T10:00:00Z'])]);
+it('reads a project that has no name', function (): void {
+    Http::fake(['relay.test/v1/projects/ws_1' => Http::response(['id' => 'prj_1', 'external_ref' => 'ws_1', 'name' => null, 'settings' => [], 'suspended_at' => null, 'created_at' => '2026-11-12T10:00:00Z'])]);
 
-    expect(Relay::scopes()->find('ws_1')?->name)->toBeNull();
+    expect(Relay::projects()->find('ws_1')?->name)->toBeNull();
 });

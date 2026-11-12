@@ -41,7 +41,7 @@ extension beyond what Laravel itself requires. The HTTP client needs Guzzle, whi
 ## Services
 
 - A Cbox Relay organization and an API key (`rlk_live_…` or `rlk_test_…`) with the
-  abilities for what you use: `scopes:manage`, `deliveries:read`, `events:publish`,
+  abilities for what you use: `projects:manage`, `deliveries:read`, `events:publish`,
   `events:read`, `endpoints:manage`, `mail:send`, `domains:manage`,
   `suppressions:manage`, `push:send`, `push:manage`, `inbound:read`, `inbound:manage`,
   `judge:run`, `sources:manage`.

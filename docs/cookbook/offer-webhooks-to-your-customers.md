@@ -8,7 +8,7 @@ weight: 33
 
 ## Declare the types on deploy
 
-The list is the whole truth, so keep it in one place and send it for every scope when
+The list is the whole truth, so keep it in one place and send it for every project when
 it changes.
 
 ```php
@@ -16,21 +16,21 @@ it changes.
 public function handle(): void
 {
     Workspace::query()->each(function (Workspace $workspace): void {
-        Relay::forScope($workspace->id)->eventTypes()->declare(config('webhooks.types'));
+        Relay::forProject($workspace->id)->eventTypes()->declare(config('webhooks.types'));
     });
 }
 ```
 
-A new workspace needs the same call once, right after its scope is put.
+A new workspace needs the same call once, right after its project is put.
 
 ## Let a workspace register an endpoint
 
 ```php
 public function store(StoreEndpointRequest $request, Workspace $workspace): JsonResponse
 {
-    $this->authorize('manage', $workspace);   // the client does not check who may act for a scope
+    $this->authorize('manage', $workspace);   // the client does not check who may act for a project
 
-    $endpoint = Relay::forScope($workspace->id)->endpoints()->register(
+    $endpoint = Relay::forProject($workspace->id)->endpoints()->register(
         $request->string('url')->toString(),
         $request->array('event_types'),
         idempotencyKey: $request->header('Idempotency-Key'),
@@ -50,7 +50,7 @@ A URL that is not public https, or an unknown type, is Relay's 422: catch
 DB::transaction(function () use ($order): void {
     $order->markPaid();
 
-    Relay::forScope($order->workspace_id)->publish(
+    Relay::forProject($order->workspace_id)->publish(
         'order.paid',
         ['id' => $order->id, 'total' => $order->total],
         idempotencyKey: "order.paid:{$order->id}",
@@ -64,7 +64,7 @@ published.
 ## Show what became of it
 
 ```php
-$relay = Relay::forScope($workspace->id);
+$relay = Relay::forProject($workspace->id);
 
 $event = $relay->events()->find($eventId);
 
@@ -80,9 +80,9 @@ $relay->endpoints()->replay($endpointId, now()->subHours(6)); // after the custo
 ## Test it
 
 ```php
-$relay = Relay::fake()->acceptAnyScope();
+$relay = Relay::fake()->acceptAnyProject();
 
 $order->pay();
 
-$relay->assertPublished('order.paid', fn (NewEvent $event, ?string $scope): bool => $event->idempotencyKey === "order.paid:{$order->id}" && $scope === $order->workspace_id);
+$relay->assertPublished('order.paid', fn (NewEvent $event, ?string $project): bool => $event->idempotencyKey === "order.paid:{$order->id}" && $project === $order->workspace_id);
 ```

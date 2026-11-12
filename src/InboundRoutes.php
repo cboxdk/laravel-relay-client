@@ -8,12 +8,12 @@ use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\InboundRoute;
 use Cbox\Relay\Client\Data\InboundRouteType;
 
-/** The address patterns a scope receives mail for. Reached through `Relay::inboundRoutes()`. */
+/** The address patterns a project receives mail for. Reached through `Relay::inboundRoutes()`. */
 class InboundRoutes
 {
     public function __construct(
         private readonly RelayTransport $transport,
-        private readonly ActingScope $scope = new ActingScope,
+        private readonly ActingProject $project = new ActingProject,
     ) {}
 
     /**
@@ -23,7 +23,7 @@ class InboundRoutes
      */
     public function register(InboundRouteType $type, string $domain, ?string $prefix = null, ?string $idempotencyKey = null): InboundRoute
     {
-        return $this->transport->createInboundRoute($type, $domain, $prefix, $idempotencyKey, $this->scope->required());
+        return $this->transport->createInboundRoute($type, $domain, $prefix, $idempotencyKey, $this->project->required());
     }
 
     /**
@@ -31,18 +31,18 @@ class InboundRoutes
      */
     public function list(): array
     {
-        return $this->transport->listInboundRoutes($this->scope->required());
+        return $this->transport->listInboundRoutes($this->project->required());
     }
 
     /** Look for a domain route's DNS record now. The answer is the route either way; its status says whether it was found. */
     public function verify(string $id): InboundRoute
     {
-        return $this->transport->verifyInboundRoute($id, $this->scope->required());
+        return $this->transport->verifyInboundRoute($id, $this->project->required());
     }
 
     /** Stop receiving for the pattern. Mail already received is kept. */
     public function remove(string $id): void
     {
-        $this->transport->deleteInboundRoute($id, $this->scope->required());
+        $this->transport->deleteInboundRoute($id, $this->project->required());
     }
 }

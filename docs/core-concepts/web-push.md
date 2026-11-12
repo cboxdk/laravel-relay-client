@@ -1,23 +1,23 @@
 ---
 title: Web Push
-description: The scope's VAPID key, browser subscriptions, push messages and the Laravel notification channel.
+description: The project's VAPID key, browser subscriptions, push messages and the Laravel notification channel.
 weight: 30
 ---
 
 # Web Push
 
-Each scope has its own VAPID key pair in Relay. Subscribers belong to the scope.
+Each project has its own VAPID key pair in Relay. Subscribers belong to the project.
 
 ## Subscribe a browser
 
 ```php
-$key = Relay::forScope($ref)->pushKey();   // give it to the page as applicationServerKey
+$key = Relay::forProject($ref)->pushKey();   // give it to the page as applicationServerKey
 ```
 
 The page subscribes and posts `subscription.toJSON()` to your app. Hand it on:
 
 ```php
-$subscription = Relay::forScope($ref)->pushSubscriptions()->subscribe($request->json()->all(), ref: "user-{$user->id}");
+$subscription = Relay::forProject($ref)->pushSubscriptions()->subscribe($request->json()->all(), ref: "user-{$user->id}");
 
 $subscription->id;        // 'psb_…': keep it, it is what you send to
 $subscription->created;   // false when Relay knew this browser (its keys were updated)
@@ -29,8 +29,8 @@ Relay sends to; anything else answers 422. Relay never gives the endpoint back, 
 its host (`$subscription->service`).
 
 ```php
-Relay::forScope($ref)->pushSubscriptions()->list(ref: "user-{$user->id}");   // list<PushSubscription>, the newest 500
-Relay::forScope($ref)->pushSubscriptions()->unsubscribe($id);
+Relay::forProject($ref)->pushSubscriptions()->list(ref: "user-{$user->id}");   // list<PushSubscription>, the newest 500
+Relay::forProject($ref)->pushSubscriptions()->unsubscribe($id);
 ```
 
 ## Send
@@ -38,7 +38,7 @@ Relay::forScope($ref)->pushSubscriptions()->unsubscribe($id);
 ```php
 use Cbox\Relay\Client\Data\PushUrgency;
 
-$message = Relay::forScope($ref)->push(
+$message = Relay::forProject($ref)->push(
     $subscription->id,
     ['title' => 'Your order shipped', 'url' => '/orders/1'],   // what your service worker receives
     ttl: 3600,
@@ -47,7 +47,7 @@ $message = Relay::forScope($ref)->push(
 );
 
 $message->status;                                    // 'queued'
-Relay::forScope($ref)->pushMessage($message->id);    // ?PushMessage: status, attempts, responseCode, error
+Relay::forProject($ref)->pushMessage($message->id);    // ?PushMessage: status, attempts, responseCode, error
 ```
 
 Relay stores and queues the message and sends it from its own queue. A payload may be
@@ -90,8 +90,8 @@ public function routeNotificationForRelayWebPush(Notification $notification): ar
 ```
 
 - Each subscription gets its own message.
-- The scope is the client's default (`relay.scope`) unless the message names one:
-  `new WebPushMessage($payload, scope: $workspace->id)`.
+- The project is the client's default (`relay.project`) unless the message names one:
+  `new WebPushMessage($payload, project: $workspace->id)`.
 - A subscription Relay no longer knows (404) is skipped, so the others still get
   theirs. Every other failure is thrown, so a queued notification is retried.
 - `send()` returns the `PushMessage`s Relay stored.

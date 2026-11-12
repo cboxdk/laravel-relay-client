@@ -17,7 +17,7 @@ Areas of particular interest for this package:
 - The `relay.webhook` middleware and `Webhooks\WebhookSignature`: anything that lets a
   request through without a valid signature, or with a timestamp outside the tolerance.
 - The `relay` mail transport: a header or recipient reaching Relay that the mail did
-  not carry, or a control header (`X-Relay-Scope`, `X-Relay-Idempotency-Key`) passed on.
-- The `Relay-Scope` header: an organization key acting for one of its scopes. A value
-  taken from user input lets that user pick the scope. See
+  not carry, or a control header (`X-Relay-Project`, `X-Relay-Idempotency-Key`) passed on.
+- The `Relay-Project` header: an organization key acting for one of its projects. A value
+  taken from user input lets that user pick the project. See
   [docs/security/threat-model.md](docs/security/threat-model.md).

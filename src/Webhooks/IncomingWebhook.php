@@ -13,9 +13,9 @@ use Cbox\Relay\Client\Webhooks\Events\MailBlocked;
 use Cbox\Relay\Client\Webhooks\Events\MailBounced;
 use Cbox\Relay\Client\Webhooks\Events\MailComplained;
 use Cbox\Relay\Client\Webhooks\Events\MailReceived;
+use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundPaused;
 use Cbox\Relay\Client\Webhooks\Events\PushDelivered;
 use Cbox\Relay\Client\Webhooks\Events\PushExpired;
-use Cbox\Relay\Client\Webhooks\Events\ScopeOutboundPaused;
 use DateTimeImmutable;
 use Exception;
 use Illuminate\Http\Request;
@@ -46,12 +46,12 @@ readonly class IncomingWebhook
         'push.delivered' => PushDelivered::class,
         'push.expired' => PushExpired::class,
         'endpoint.disabled' => EndpointDisabled::class,
-        'scope.outbound_paused' => ScopeOutboundPaused::class,
+        'project.outbound_paused' => ProjectOutboundPaused::class,
     ];
 
     /**
      * @param  array<string, mixed>  $data  the event's payload, untouched
-     * @param  string|null  $scopeId  Relay's id (`scp_…`) of the scope the event belongs to
+     * @param  string|null  $projectId  Relay's id (`prj_…`) of the project the event belongs to
      */
     public function __construct(
         public string $id,
@@ -62,7 +62,7 @@ readonly class IncomingWebhook
         public ?string $deliveryId = null,
         public ?int $attempt = null,
         public ?int $sequence = null,
-        public ?string $scopeId = null,
+        public ?string $projectId = null,
         public ?string $apiVersion = null,
     ) {}
 
@@ -132,7 +132,8 @@ readonly class IncomingWebhook
      */
     private static function fromCboxEnvelope(array $body): self
     {
-        $scope = self::map($body, 'scope');
+        // The envelope's own word (cboxdk/laravel-webhooks): `scope` holds the project's id as its key.
+        $project = self::map($body, 'scope');
 
         return new self(
             id: self::string($body, 'id'),
@@ -143,7 +144,7 @@ readonly class IncomingWebhook
             deliveryId: self::optionalString($body, 'delivery_id'),
             attempt: self::optionalInt($body, 'attempt'),
             sequence: self::optionalInt($body, 'sequence'),
-            scopeId: self::optionalString($scope, 'key'),
+            projectId: self::optionalString($project, 'key'),
             apiVersion: self::optionalString($body, 'api_version'),
         );
     }
@@ -167,7 +168,7 @@ readonly class IncomingWebhook
             attempt: self::optionalInt($body, 'attempt'),
             // CloudEvents carries the sequence as a string of digits.
             sequence: self::optionalInt($body, 'sequence'),
-            scopeId: $subject === null || $slash === false ? $subject : substr($subject, $slash + 1),
+            projectId: $subject === null || $slash === false ? $subject : substr($subject, $slash + 1),
             apiVersion: self::optionalString($body, 'apiversion'),
         );
     }

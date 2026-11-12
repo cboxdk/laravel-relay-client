@@ -9,7 +9,7 @@ use Cbox\Relay\Client\Webhooks\RelayEvent;
 use DateTimeImmutable;
 
 /**
- * `mail.received`: a mail arrived for one of the scope's inbound routes and was parsed.
+ * `mail.received`: a mail arrived for one of the project's inbound routes and was parsed.
  * No content travels with the event: fetch it with `Relay::inbound()->find($event->id)`.
  * An `$autoReply` is not an answer from a person.
  */
@@ -17,7 +17,7 @@ readonly class MailReceived implements RelayEvent
 {
     public function __construct(
         public string $id,
-        public string $scopeId,
+        public string $projectId,
         public string $recipient,
         public string $envelopeFrom = '',
         public ?string $from = null,
@@ -38,7 +38,7 @@ readonly class MailReceived implements RelayEvent
     {
         return new self(
             id: Payload::string($data, 'id'),
-            scopeId: Payload::string($data, 'scope_id'),
+            projectId: Payload::string($data, 'project_id'),
             recipient: Payload::string($data, 'recipient'),
             envelopeFrom: Payload::nullableString($data, 'envelope_from') ?? '',
             from: Payload::nullableString($data, 'from'),

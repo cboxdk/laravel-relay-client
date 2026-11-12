@@ -7,7 +7,7 @@ use Cbox\Relay\Client\Data\DeliveryFilter;
 use Cbox\Relay\Client\Data\Identity;
 use Cbox\Relay\Client\Data\Page;
 use Cbox\Relay\Client\Data\Problem;
-use Cbox\Relay\Client\Data\Scope;
+use Cbox\Relay\Client\Data\Project;
 use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayRateLimited;
@@ -16,27 +16,27 @@ it('round-trips an identity', function (): void {
     $body = [
         'organization' => ['id' => 'org_1', 'name' => 'Cbox'],
         'environment' => 'live',
-        'scope' => ['id' => 'scp_1', 'external_ref' => 'ws_1', 'name' => 'Acme'],
-        'key' => ['id' => 'key_1', 'name' => 'Billing', 'prefix' => 'rlk_live_ab12', 'abilities' => ['scopes:manage']],
+        'project' => ['id' => 'prj_1', 'external_ref' => 'ws_1', 'name' => 'Acme'],
+        'key' => ['id' => 'key_1', 'name' => 'Billing', 'prefix' => 'rlk_live_ab12', 'abilities' => ['projects:manage']],
     ];
 
     expect(Identity::fromArray($body)->toArray())->toBe($body);
 });
 
-it('round-trips a scope', function (): void {
-    $body = ['id' => 'scp_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'settings' => ['a' => ['b' => 1]], 'suspended_at' => '2026-11-12T11:00:00+00:00', 'created_at' => '2026-11-12T10:00:00+00:00'];
+it('round-trips a project', function (): void {
+    $body = ['id' => 'prj_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'settings' => ['a' => ['b' => 1]], 'suspended_at' => '2026-11-12T11:00:00+00:00', 'created_at' => '2026-11-12T10:00:00+00:00'];
 
-    $scope = Scope::fromArray($body);
+    $project = Project::fromArray($body);
 
-    expect($scope->toArray())->toBe($body)
-        ->and($scope->is('ws_1'))->toBeTrue()
-        ->and($scope->is('scp_1'))->toBeTrue()
-        ->and($scope->is('ws_2'))->toBeFalse();
+    expect($project->toArray())->toBe($body)
+        ->and($project->is('ws_1'))->toBeTrue()
+        ->and($project->is('prj_1'))->toBeTrue()
+        ->and($project->is('ws_2'))->toBeFalse();
 });
 
 it('round-trips a delivery, with its nullable parts', function (): void {
     $body = [
-        'id' => 'dlv_1', 'scope_id' => null, 'channel' => 'webhook', 'subject_type' => 'event', 'subject_id' => 'evt_1',
+        'id' => 'dlv_1', 'project_id' => null, 'channel' => 'webhook', 'subject_type' => 'event', 'subject_id' => 'evt_1',
         'target' => 'https://example.test', 'status' => 'pending', 'attempt' => 1, 'response_code' => null, 'error' => null,
         'duration_ms' => null, 'occurred_at' => '2026-11-12T10:00:00+00:00',
     ];

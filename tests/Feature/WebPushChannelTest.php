@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Notification as Notifications;
 
 class OrderShipped extends Notification
 {
-    public function __construct(public ?string $scope = null) {}
+    public function __construct(public ?string $project = null) {}
 
     /** @return list<class-string> */
     public function via(object $notifiable): array
@@ -26,7 +26,7 @@ class OrderShipped extends Notification
 
     public function toRelayWebPush(object $notifiable): WebPushMessage
     {
-        return new WebPushMessage(['title' => 'Your order shipped'], ttl: 3600, urgency: PushUrgency::High, topic: 'orders', scope: $this->scope);
+        return new WebPushMessage(['title' => 'Your order shipped'], ttl: 3600, urgency: PushUrgency::High, topic: 'orders', project: $this->project);
     }
 }
 
@@ -59,9 +59,9 @@ class Customer
 }
 
 beforeEach(function (): void {
-    config()->set('relay.scope', 'ws_1');
+    config()->set('relay.project', 'ws_1');
     $this->relay = Relay::fake();
-    $this->relay->seedScope('ws_1');
+    $this->relay->seedProject('ws_1');
 });
 
 it('sends one push message to the notifiable\'s subscription', function (): void {
@@ -74,7 +74,7 @@ it('sends one push message to the notifiable\'s subscription', function (): void
         && $push->ttl === 3600
         && $push->urgency === PushUrgency::High
         && $push->topic === 'orders'
-        && $push->scope === 'ws_1');
+        && $push->project === 'ws_1');
 });
 
 it('sends to every subscription the notifiable routes to, once each', function (): void {
@@ -98,16 +98,16 @@ it('skips a subscription Relay no longer knows and still sends to the others', f
     $this->relay->assertPushed($known->id);
 });
 
-it('sends for the scope the message names', function (): void {
-    $this->relay->seedScope('ws_2');
+it('sends for the project the message names', function (): void {
+    $this->relay->seedProject('ws_2');
     $subscription = $this->relay->seedPushSubscription('ws_2');
 
     (new Customer($subscription->id))->notify(new OrderShipped('ws_2'));
 
-    $this->relay->assertPushed($subscription->id, fn (SentPush $push): bool => $push->scope === 'ws_2');
+    $this->relay->assertPushed($subscription->id, fn (SentPush $push): bool => $push->project === 'ws_2');
 });
 
-it('does not hide a scope that does not exist, or Relay being down', function (): void {
+it('does not hide a project that does not exist, or Relay being down', function (): void {
     $subscription = $this->relay->seedPushSubscription('ws_1');
 
     expect(fn () => (new Customer($subscription->id))->notify(new OrderShipped('ws_missing')))->toThrow(RelayNotFound::class);

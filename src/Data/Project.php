@@ -8,14 +8,14 @@ use DateTimeImmutable;
 use DateTimeInterface;
 
 /**
- * A scope: one of a product's own workspaces as Relay knows it. `$externalRef` is the
- * product's id for it, `$id` Relay's (`scp_…`). `$settings` is the free-form JSON object
+ * A project: one of a product's own workspaces as Relay knows it. `$externalRef` is the
+ * product's id for it, `$id` Relay's (`prj_…`). `$settings` is the free-form JSON object
  * the product stored with it.
  *
- * `$created` is true only on the scope returned by the `put` that created it (Relay
+ * `$created` is true only on the project returned by the `put` that created it (Relay
  * answered 201); it is false on every other read.
  */
-readonly class Scope
+readonly class Project
 {
     /**
      * @param  array<string, mixed>  $settings
@@ -51,14 +51,14 @@ readonly class Scope
         return $this->suspendedAt !== null;
     }
 
-    /** Whether `$ref` names this scope, by external ref or by id. */
+    /** Whether `$ref` names this project, by external ref or by id. */
     public function is(string $ref): bool
     {
         return $ref === $this->externalRef || $ref === $this->id;
     }
 
     /**
-     * The scope as Relay serializes it. `$created` is not part of it.
+     * The project as Relay serializes it. `$created` is not part of it.
      *
      * @return array<string, mixed>
      */

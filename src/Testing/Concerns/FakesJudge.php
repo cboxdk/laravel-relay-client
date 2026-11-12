@@ -17,13 +17,13 @@ trait FakesJudge
     /** The verdicts Relay scores today. */
     private const array VERDICTS = ['phishing', 'brand_impersonation', 'link_mismatch', 'credential_request', 'auto_reply', 'unsubscribe_intent'];
 
-    /** @var array<string, array<string, Judgment>> by scope, then id */
+    /** @var array<string, array<string, Judgment>> by project, then id */
     private array $judgments = [];
 
     /** @var array<string, string> content fingerprint => judgment id */
     private array $judgedContent = [];
 
-    /** @var list<array{input: JudgeInput, scope: string|null}> */
+    /** @var list<array{input: JudgeInput, project: string|null}> */
     private array $judged = [];
 
     /** @var array<string, float> */
@@ -36,16 +36,16 @@ trait FakesJudge
 
     private ?string $nextBrand = null;
 
-    public function judge(JudgeInput $input, ?string $idempotencyKey = null, ?string $scope = null): Judgment
+    public function judge(JudgeInput $input, ?string $idempotencyKey = null, ?string $project = null): Judgment
     {
-        $this->record(new RecordedCall(Operation::Judge, $scope, idempotencyKey: $idempotencyKey, subject: $input));
-        $bucket = $this->bucket($scope);
+        $this->record(new RecordedCall(Operation::Judge, $project, idempotencyKey: $idempotencyKey, subject: $input));
+        $bucket = $this->bucket($project);
 
         if (($input->html === null || $input->html === '') && ($input->text === null || $input->text === '')) {
             throw $this->invalid('html', 'At least one of html and text is required.');
         }
 
-        $this->judged[] = ['input' => $input, 'scope' => $scope];
+        $this->judged[] = ['input' => $input, 'project' => $project];
 
         // Exactly the same content again is the judgment it got before.
         $content = $this->fingerprint(Operation::Judge, $bucket, $input);
@@ -78,11 +78,11 @@ trait FakesJudge
         );
     }
 
-    public function findJudgment(string $id, ?string $scope = null): ?Judgment
+    public function findJudgment(string $id, ?string $project = null): ?Judgment
     {
-        $this->record(new RecordedCall(Operation::FindJudgment, $scope, $id));
+        $this->record(new RecordedCall(Operation::FindJudgment, $project, $id));
 
-        return $this->judgments[$this->bucket($scope)][$id] ?? null;
+        return $this->judgments[$this->bucket($project)][$id] ?? null;
     }
 
     /**
@@ -104,11 +104,11 @@ trait FakesJudge
     /**
      * Something was sent to the judge (and matches `$where`).
      *
-     * @param  (callable(JudgeInput, string|null): bool)|null  $where  given the input and the scope it was judged for
+     * @param  (callable(JudgeInput, string|null): bool)|null  $where  given the input and the project it was judged for
      */
     public function assertJudged(?callable $where = null): void
     {
-        $matching = array_filter($this->judged, static fn (array $judged): bool => $where === null || $where($judged['input'], $judged['scope']));
+        $matching = array_filter($this->judged, static fn (array $judged): bool => $where === null || $where($judged['input'], $judged['project']));
 
         Assert::assertNotEmpty($matching, $where === null
             ? 'Nothing was sent to the Cbox Relay judge.'

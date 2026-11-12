@@ -9,7 +9,7 @@ weight: 21
 ```
 Facades\Relay ─► Relay (manager) ─► Contracts\RelayTransport ─┬─ Http\HttpRelayTransport ─► Cbox Relay
                    │                                           └─ Testing\FakeRelay (in memory)
-                   ├─ Scopes, EventTypes, Endpoints, Events, InboundRoutes, Inbound,
+                   ├─ Projects, EventTypes, Endpoints, Events, InboundRoutes, Inbound,
                    │  PushSubscriptions, Domains, Suppressions
                    └─ Contracts\EventPublisher ─┬─ Publishing\QueuedEventPublisher ─► Jobs\PublishEvent ─► transport
                                                 └─ Publishing\ImmediateEventPublisher ─► transport
@@ -23,26 +23,26 @@ Http\Middleware\VerifyRelayWebhook ─► Webhooks\WebhookSignature, Webhooks\In
 ## The contract
 
 `Cbox\Relay\Client\Contracts\RelayTransport` has one method per endpoint of the API,
-about fifty of them: `whoami`, `putScope`, `publishEvent`, `createEndpoint`, `judge`,
+about fifty of them: `whoami`, `putProject`, `publishEvent`, `createEndpoint`, `judge`,
 `sendPush`, `sendMail` and so on. Each takes typed arguments and a last
-`?string $scope`, which becomes the `Relay-Scope` header, and returns a typed value.
+`?string $project`, which becomes the `Relay-Project` header, and returns a typed value.
 A `find…` method answers `null` for a 404.
 
-The contract passes on what it is given. It does not check that a scope is set.
+The contract passes on what it is given. It does not check that a project is set.
 
 ## The manager
 
-`Cbox\Relay\Client\Relay` holds a transport, the scope it acts for and a publisher, and
+`Cbox\Relay\Client\Relay` holds a transport, the project it acts for and a publisher, and
 forwards to the contract. Groups of calls live on small objects it returns:
-`scopes()`, `eventTypes()`, `endpoints()`, `events()`, `inboundRoutes()`, `inbound()`,
+`projects()`, `eventTypes()`, `endpoints()`, `events()`, `inboundRoutes()`, `inbound()`,
 `pushSubscriptions()`, `domains()` and `suppressions()`.
 
-`forScope()` and `withoutScope()` return a new manager; the one you called them on is
+`forProject()` and `withoutProject()` return a new manager; the one you called them on is
 unchanged. The container builds a new manager on every resolution, on whatever
 transport is bound at that moment.
 
-The manager is where a missing scope is caught: see
-[Authentication](authentication.md#calls-that-need-a-scope).
+The manager is where a missing project is caught: see
+[Authentication](authentication.md#calls-that-need-a-project).
 
 ## Publishing
 
@@ -54,7 +54,7 @@ The manager is where a missing scope is caught: see
 Everything the client returns is a typed, readonly object in `Cbox\Relay\Client\Data`.
 Arrays exist at two places only: where a JSON body is read (`fromArray`) and where one
 is written (`toArray`). The free-form bags are the ones whose shape belongs to your
-product: `Scope::$settings`, an event's payload, a push payload.
+product: `Project::$settings`, an event's payload, a push payload.
 
 What goes in is typed with enums where the API has a fixed set (`Envelope`,
 `SignatureScheme`, `InboundRouteType`, `PushUrgency`, `SuppressionReason`, `JudgeKind`,

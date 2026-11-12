@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: Install the package, set RELAY_URL and RELAY_KEY, run a queue worker, and choose how the scope is named.
+description: Install the package, set RELAY_URL and RELAY_KEY, run a queue worker, and choose how the project is named.
 weight: 11
 ---
 
@@ -32,11 +32,11 @@ reach Relay. By default the job goes on the app's default connection and queue; 
 `RELAY_PUBLISH_CONNECTION` and `RELAY_PUBLISH_QUEUE` to move it. See
 [Publishing events](../core-concepts/publishing-events.md).
 
-## Scope
+## Project
 
-Most calls act for one scope. With an organization key, name it per call with
-`Relay::forScope($ref)` or once with `RELAY_SCOPE`. With a scope key, set
-`RELAY_SCOPE_KEY=true`. See [Authentication](../core-concepts/authentication.md).
+Most calls act for one project. With an organization key, name it per call with
+`Relay::forProject($ref)` or once with `RELAY_PROJECT`. With a project key, set
+`RELAY_PROJECT_KEY=true`. See [Authentication](../core-concepts/authentication.md).
 
 ## Config
 
