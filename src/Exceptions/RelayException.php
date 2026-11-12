@@ -23,6 +23,24 @@ class RelayException extends RuntimeException
         parent::__construct($message, 0, $previous);
     }
 
+    /**
+     * Relay's own name for the problem, the stable part to branch on: `mail_not_held`,
+     * `scope_suspended`, `idempotency_key_reused`. It is the last segment of the problem
+     * document's `type`; null when there was no problem document or it named none.
+     */
+    public function type(): ?string
+    {
+        $type = $this->problem?->type;
+
+        if ($type === null || $type === 'about:blank') {
+            return null;
+        }
+
+        $name = substr($type, (int) strrpos('/'.$type, '/'));
+
+        return $name === '' ? null : $name;
+    }
+
     /** The HTTP status Relay answered with; null when there was no answer. */
     public function status(): ?int
     {

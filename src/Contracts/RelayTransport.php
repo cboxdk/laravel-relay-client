@@ -305,4 +305,10 @@ interface RelayTransport
 
     /** `GET /v1/mail/{id}`; null when Relay answers 404. */
     public function findMail(string $id, ?string $scope = null): ?Mail;
+
+    /** `POST /v1/mail/{id}/release`: queue a mail the filter held. 409 `mail_not_held` when it is not quarantined. */
+    public function releaseMail(string $id, ?string $scope = null): Mail;
+
+    /** `POST /v1/mail/{id}/discard`: never send a mail the filter held and remove its content. 409 `mail_not_held` when it is not quarantined. */
+    public function discardMail(string $id, ?string $scope = null): Mail;
 }

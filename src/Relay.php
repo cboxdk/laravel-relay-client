@@ -263,6 +263,26 @@ class Relay
         return $this->transport->findMail($id, $this->acting->required());
     }
 
+    /**
+     * Send a mail the filter held (`quarantined`) after all. It is queued as if it had
+     * not been held; recipients suppressed since are left out. A mail that is not held
+     * throws `RelayConflict` with the type `mail_not_held`.
+     */
+    public function releaseMail(string $id): Mail
+    {
+        return $this->transport->releaseMail($id, $this->acting->required());
+    }
+
+    /**
+     * Give up a mail the filter held: it is never sent, becomes `blocked`, and its
+     * content is removed. A mail that is not held throws `RelayConflict` with the type
+     * `mail_not_held`.
+     */
+    public function discardMail(string $id): Mail
+    {
+        return $this->transport->discardMail($id, $this->acting->required());
+    }
+
     // Scope
 
     /**

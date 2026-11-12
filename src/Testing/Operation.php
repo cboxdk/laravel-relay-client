@@ -70,4 +70,6 @@ enum Operation: string
     case DeleteSuppression = 'delete_suppression';
     case SendMail = 'send_mail';
     case FindMail = 'find_mail';
+    case ReleaseMail = 'release_mail';
+    case DiscardMail = 'discard_mail';
 }

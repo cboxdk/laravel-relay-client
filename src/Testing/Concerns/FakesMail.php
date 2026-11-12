@@ -10,9 +10,11 @@ use Cbox\Relay\Client\Data\Mail;
 use Cbox\Relay\Client\Data\MailRecipient;
 use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Data\Page;
+use Cbox\Relay\Client\Data\Problem;
 use Cbox\Relay\Client\Data\SendingDomain;
 use Cbox\Relay\Client\Data\Suppression;
 use Cbox\Relay\Client\Data\SuppressionReason;
+use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Testing\Operation;
 use Cbox\Relay\Client\Testing\RecordedCall;
 use PHPUnit\Framework\Assert;
@@ -31,6 +33,12 @@ trait FakesMail
 
     /** @var list<array{mail: OutgoingMail, scope: string|null, id: string}> */
     private array $sentMail = [];
+
+    /** @var list<string> ids of held mail that was released */
+    private array $releasedMail = [];
+
+    /** @var list<string> ids of held mail that was discarded */
+    private array $discardedMail = [];
 
     public function listDomains(?string $scope = null): array
     {
@@ -228,6 +236,33 @@ trait FakesMail
         return $this->mails[$this->bucket($scope)][$id] ?? null;
     }
 
+    public function releaseMail(string $id, ?string $scope = null): Mail
+    {
+        $this->record(new RecordedCall(Operation::ReleaseMail, $scope, $id));
+        $bucket = $this->bucket($scope);
+        $mail = $this->heldMailIn($bucket, $id);
+
+        // Queued as if it had not been held; whoever was suppressed since is left out.
+        $recipients = array_map(fn (MailRecipient $recipient): MailRecipient => isset($this->suppressions[$bucket][strtolower($recipient->address)])
+            ? new MailRecipient($recipient->address, $recipient->type, 'suppressed', 'The address is on the suppression list.')
+            : $recipient, $mail->recipients);
+
+        $this->releasedMail[] = $id;
+
+        return $this->mails[$bucket][$id] = new Mail($mail->id, 'queued', $mail->from, $mail->subject, $mail->createdAt, null, $mail->verdicts, $recipients, $mail->sentAt);
+    }
+
+    public function discardMail(string $id, ?string $scope = null): Mail
+    {
+        $this->record(new RecordedCall(Operation::DiscardMail, $scope, $id));
+        $bucket = $this->bucket($scope);
+        $mail = $this->heldMailIn($bucket, $id);
+
+        $this->discardedMail[] = $id;
+
+        return $this->mails[$bucket][$id] = new Mail($mail->id, 'blocked', $mail->from, $mail->subject, $mail->createdAt, 'The held mail was discarded.', $mail->verdicts, $mail->recipients, $mail->sentAt);
+    }
+
     /**
      * Store a sending domain for a scope (stored first if it is not there) as if it had
      * been registered and, by default, verified earlier. Records no call.
@@ -323,6 +358,30 @@ trait FakesMail
     public function assertNoMailSent(): void
     {
         Assert::assertCount(0, $this->sentMail, 'Mail was sent through Cbox Relay.');
+    }
+
+    /** The held mail `$id` was released. */
+    public function assertMailReleased(string $id): void
+    {
+        Assert::assertContains($id, $this->releasedMail, "The held mail '{$id}' was not released through Cbox Relay.");
+    }
+
+    /** The held mail `$id` was discarded. */
+    public function assertMailDiscarded(string $id): void
+    {
+        Assert::assertContains($id, $this->discardedMail, "The held mail '{$id}' was not discarded through Cbox Relay.");
+    }
+
+    /** A mail that exists in the scope and is held; anything else is the 404 or the 409 the real service answers. */
+    private function heldMailIn(string $bucket, string $id): Mail
+    {
+        $mail = $this->mails[$bucket][$id] ?? throw $this->missing('mail_not_found', 'No mail with that id exists in this scope.');
+
+        if ($mail->status !== 'quarantined') {
+            throw new RelayConflict('Cbox Relay answered 409 Conflict: The mail is not held.', new Problem(409, 'Conflict', 'The mail is not held.', self::PROBLEMS.'mail_not_held'));
+        }
+
+        return $mail;
     }
 
     /** What the real service refuses a mail for, as far as the fake can know. */

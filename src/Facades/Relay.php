@@ -37,6 +37,8 @@ use LogicException;
  * @method static \Cbox\Relay\Client\Suppressions suppressions()
  * @method static \Cbox\Relay\Client\Data\Mail sendMail(\Cbox\Relay\Client\Data\OutgoingMail $mail, ?string $idempotencyKey = null)
  * @method static ?\Cbox\Relay\Client\Data\Mail mail(string $id)
+ * @method static \Cbox\Relay\Client\Data\Mail releaseMail(string $id)
+ * @method static \Cbox\Relay\Client\Data\Mail discardMail(string $id)
  * @method static \Cbox\Relay\Client\Relay forScope(string $ref)
  * @method static \Cbox\Relay\Client\Relay withoutScope()
  * @method static ?string scope()

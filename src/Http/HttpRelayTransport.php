@@ -418,6 +418,16 @@ class HttpRelayTransport implements RelayTransport
         return $body === null ? null : Mail::fromArray($body);
     }
 
+    public function releaseMail(string $id, ?string $scope = null): Mail
+    {
+        return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/release', scope: $scope)));
+    }
+
+    public function discardMail(string $id, ?string $scope = null): Mail
+    {
+        return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/discard', scope: $scope)));
+    }
+
     private function endpointAction(string $id, string $action, ?string $scope): Endpoint
     {
         return Endpoint::fromArray($this->body($this->send('POST', '/v1/endpoints/'.rawurlencode($id).'/'.$action, scope: $scope)));
