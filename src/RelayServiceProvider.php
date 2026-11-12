@@ -6,20 +6,24 @@ namespace Cbox\Relay\Client;
 
 use Cbox\Relay\Client\Contracts\EventPublisher;
 use Cbox\Relay\Client\Contracts\RelayTransport;
+use Cbox\Relay\Client\Contracts\WebhookSecrets;
 use Cbox\Relay\Client\Http\HttpRelayTransport;
+use Cbox\Relay\Client\Http\Middleware\VerifyRelayWebhook;
 use Cbox\Relay\Client\Mail\RelayMailTransport;
 use Cbox\Relay\Client\Publishing\ImmediateEventPublisher;
 use Cbox\Relay\Client\Publishing\QueuedEventPublisher;
+use Cbox\Relay\Client\Webhooks\ConfiguredWebhookSecrets;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Mail\MailManager;
+use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 
 /**
  * Binds the transport contract to its HTTP implementation, the publisher to the queue
  * (or to an immediate one with `relay.publish.sync`) and the {@see Relay} manager on top
  * of whatever is bound, acting for `relay.scope` when one is set. Registers the `relay`
- * mail transport.
+ * mail transport and the `relay.webhook` route middleware.
  */
 class RelayServiceProvider extends ServiceProvider
 {
@@ -30,6 +34,7 @@ class RelayServiceProvider extends ServiceProvider
         $this->app->singleton(RelayConfig::class);
 
         $this->app->bind(RelayTransport::class, HttpRelayTransport::class);
+        $this->app->bind(WebhookSecrets::class, ConfiguredWebhookSecrets::class);
 
         $this->app->bind(EventPublisher::class, static fn (Application $app): EventPublisher => $app->make(RelayConfig::class)->publishSync()
             ? new ImmediateEventPublisher($app->make(RelayTransport::class))
@@ -58,6 +63,10 @@ class RelayServiceProvider extends ServiceProvider
 
                 return new RelayMailTransport(fn (): Relay => $this->app->make(Relay::class), is_string($scope) && $scope !== '' ? $scope : null);
             });
+        });
+
+        $this->callAfterResolving('router', static function (Router $router): void {
+            $router->aliasMiddleware('relay.webhook', VerifyRelayWebhook::class);
         });
     }
 }
