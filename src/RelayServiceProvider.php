@@ -7,16 +7,19 @@ namespace Cbox\Relay\Client;
 use Cbox\Relay\Client\Contracts\EventPublisher;
 use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Http\HttpRelayTransport;
+use Cbox\Relay\Client\Mail\RelayMailTransport;
 use Cbox\Relay\Client\Publishing\ImmediateEventPublisher;
 use Cbox\Relay\Client\Publishing\QueuedEventPublisher;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Mail\MailManager;
 use Illuminate\Support\ServiceProvider;
 
 /**
  * Binds the transport contract to its HTTP implementation, the publisher to the queue
  * (or to an immediate one with `relay.publish.sync`) and the {@see Relay} manager on top
- * of whatever is bound, acting for `relay.scope` when one is set.
+ * of whatever is bound, acting for `relay.scope` when one is set. Registers the `relay`
+ * mail transport.
  */
 class RelayServiceProvider extends ServiceProvider
 {
@@ -47,5 +50,14 @@ class RelayServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->publishes([__DIR__.'/../config/relay.php' => $this->app->configPath('relay.php')], 'relay-config');
         }
+
+        $this->callAfterResolving('mail.manager', function (MailManager $mail): void {
+            // `MAIL_MAILER=relay` with `'relay' => ['transport' => 'relay']` in config/mail.php.
+            $mail->extend('relay', function (array $config = []): RelayMailTransport {
+                $scope = $config['scope'] ?? null;
+
+                return new RelayMailTransport(fn (): Relay => $this->app->make(Relay::class), is_string($scope) && $scope !== '' ? $scope : null);
+            });
+        });
     }
 }
