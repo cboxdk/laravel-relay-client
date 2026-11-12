@@ -5,6 +5,46 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+Everything here is additive: code written against 0.2.0 keeps working.
+
+### Added
+
+- **Sending limits.** `Relay::sendingLimits()`: `current()` reads the project's limits per
+  hour and per day, what it has used, its standing and the last moves; `request($hour,
+  $day, $reason)` asks for more and comes back `approved` or `pending`; `requests()` and
+  `findRequest($id)` read the answers. The key needs the ability `limits:request`. The
+  calls are on a new contract, `Contracts\SendingLimitsTransport`, beside
+  `RelayTransport`: a transport of your own written against 0.2.0 still satisfies
+  `RelayTransport`, and `sendingLimits()` says so plainly if it does not make these calls.
+- **A refusal for a sending limit says so.** `RelayRateLimited::sendingLimited()` tells a
+  sending limit (`sending_limited`) from the key's own rate limit, and `scope()` says
+  whose it was: `project` or `organization`. `retryAfter` is how long to wait.
+- **Who holds a mail.** `Mail::$heldBy` (`project`, `relay` or null) and
+  `Mail::heldByRelay()`. Releasing a mail Relay's own guard holds throws `RelayForbidden`,
+  and `RelayForbidden::heldByRelay()` says that is why.
+- **Finding a mail again.** `Mail::$idempotencyKey`, `MailFilter::idempotencyKey()` and
+  `MailFilter::metadata($key, $value)`. On `409` `idempotency_key_reused`,
+  `RelayConflict::mailId()` is the mail the first call accepted.
+- **DNS status per record.** `DnsRecord::$status` (`found`, `missing`, `different`,
+  `unchecked`) and `DnsRecord::found()` on a sending domain's records.
+- **A problem's own members.** `Problem::$extensions` and `Problem::extension($name)`.
+- **Events.** `MailAccepted` and `MailBlocked` carry `state` and `heldBy`
+  (`MailBlocked::held()`, `::heldByRelay()`); `ProjectOutboundPaused` carries `cause`. New
+  typed events `MailReleased`, `MailDiscarded`, `ProjectOutboundLimited`,
+  `ProjectOutboundWatched`, `ProjectOutboundLimitsChanged`, `ProjectLimitRequested` and
+  `ProjectLimitRequestDecided`, each with its `Webhooks\Received\*` Laravel event. Until
+  now these deliveries arrived as `OtherEventReceived`; a listener on that for one of
+  these types should listen for the typed event instead.
+- **The local store** makes a mail `quarantined` on a `mail.blocked` that says it is only
+  held, `queued` or `scheduled` again on `mail.released`, and `blocked` on `mail.discarded`.
+- **The fake:** `limitSending()`, `liftSendingLimit()` and `seedSendingLimits()` (real
+  counting of recipients per hour and day), sending-limit requests with
+  `decideSendingLimitRequest()` and `grantLimitRequestsAtOnce()`,
+  `assertSendingLimitRequested()` and `assertNoSendingLimitRequested()`,
+  `holdMailByRelay()`, the idempotency key kept on a mail and named on a conflict, and a
+  status on each DNS record.
+- Docs: a new page, Sending limits and holds.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added

@@ -76,4 +76,9 @@ enum Operation: string
     case ListMail = 'list_mail';
     case SendMailBatch = 'send_mail_batch';
     case CancelMail = 'cancel_mail';
+
+    case SendingLimits = 'sending_limits';
+    case CreateSendingLimitRequest = 'create_sending_limit_request';
+    case ListSendingLimitRequests = 'list_sending_limit_requests';
+    case FindSendingLimitRequest = 'find_sending_limit_request';
 }

@@ -20,6 +20,8 @@ API key, the public endpoint, nothing else.
   register, pause, rotate, ping and replay endpoints, read events and their deliveries.
 - **[Outbound mail](core-concepts/outbound-mail.md)**: sending domains, the suppression
   list, `Relay::sendMail()`, and a `relay` mail transport so `MAIL_MAILER=relay` works.
+- **[Sending limits and holds](core-concepts/sending-limits.md)**: how much a project may
+  send, `Relay::sendingLimits()` to ask for more, and mail that Relay's own guard holds.
 - **[Web Push](core-concepts/web-push.md)**: the project's key, browser subscriptions,
   `Relay::push()`, and a Laravel notification channel.
 - **[Inbound mail](core-concepts/inbound-mail.md)**: claim addresses, read received
@@ -31,7 +33,7 @@ API key, the public endpoint, nothing else.
   provider's webhooks for a project and forward them to your endpoints.
 - **[Local delivery status](core-concepts/delivery-status.md)**: an optional store of
   the mail you sent and what Relay said about it, in your own database.
-- **[Connections](core-concepts/connections.md)**: more than one Relay key from one app.
+- **[Connections](core-concepts/connections.md), [Sending limits and holds](core-concepts/sending-limits.md)**: more than one Relay key from one app.
 - **[SMTP as an alternative](core-concepts/smtp-submission.md)**: for software that
   cannot call an API, and what you give up by using it from Laravel.
 - **[Commands](getting-started/commands.md)**: `relay:install`, `relay:doctor`,

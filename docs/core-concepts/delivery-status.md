@@ -38,7 +38,7 @@ connection.
 | `subject` | The subject's SHA-256, the subject itself, or nothing: `relay.store.subject` (`hash`, `plain`, `none`). `hash` is the default. |
 | `mailable` | The mailable or notification class, for mail sent through the `relay` transport. |
 | `from_address`, `recipients` | The sender, and how many recipients (to, cc and bcc). |
-| `status` | The last thing known: what Relay answered (`queued`, `scheduled`, `blocked`, `quarantined`), then `delivered`, `bounced` or `complained`. |
+| `status` | The last thing known: what Relay answered (`queued`, `scheduled`, `blocked`, `quarantined`), then `delivered`, `bounced` or `complained`. A `mail.blocked` that says the mail is only held makes it `quarantined`; `mail.released` puts it back to `queued` (or `scheduled`) and `mail.discarded` makes it `blocked`. |
 | `delivered`, `bounced`, `complained`, `clicked`, `opened` | How many events of each kind arrived. A `mail.deferred` is kept as an event row and changes neither the status nor a counter. |
 | `last_event_at` | When the newest event happened. |
 

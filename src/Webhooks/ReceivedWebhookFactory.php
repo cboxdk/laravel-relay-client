@@ -33,6 +33,13 @@ class ReceivedWebhookFactory
             $event instanceof Data\PushExpired => new Received\PushExpired($event, $webhook, $connection),
             $event instanceof Data\EndpointDisabled => new Received\EndpointDisabled($event, $webhook, $connection),
             $event instanceof Data\ProjectOutboundPaused => new Received\ProjectOutboundPaused($event, $webhook, $connection),
+            $event instanceof Data\MailReleased => new Received\MailReleased($event, $webhook, $connection),
+            $event instanceof Data\MailDiscarded => new Received\MailDiscarded($event, $webhook, $connection),
+            $event instanceof Data\ProjectOutboundLimited => new Received\ProjectOutboundLimited($event, $webhook, $connection),
+            $event instanceof Data\ProjectOutboundWatched => new Received\ProjectOutboundWatched($event, $webhook, $connection),
+            $event instanceof Data\ProjectOutboundLimitsChanged => new Received\ProjectOutboundLimitsChanged($event, $webhook, $connection),
+            $event instanceof Data\ProjectLimitRequested => new Received\ProjectLimitRequested($event, $webhook, $connection),
+            $event instanceof Data\ProjectLimitRequestDecided => new Received\ProjectLimitRequestDecided($event, $webhook, $connection),
             default => new OtherEventReceived($webhook, $connection),
         };
     }

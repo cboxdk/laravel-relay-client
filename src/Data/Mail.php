@@ -12,7 +12,10 @@ use DateTimeImmutable;
  * same as delivered to an inbox), `quarantined`, `blocked`, `failed` or `cancelled`.
  * `$reason` says why it was held, blocked or failed. `$tracksClicks` and `$tracksOpens`
  * are the answers the mail was accepted with, from the mail itself or else its sending
- * domain. `$tags` and `$metadata` are what it was sent with.
+ * domain. `$tags` and `$metadata` are what it was sent with. `$heldBy` says who holds a
+ * `quarantined` mail: `project` (a threshold of its own, which it may release) or `relay`
+ * (Relay's guard against abuse: it can be discarded, and only Relay's operator releases
+ * it). `$idempotencyKey` is the key the mail was accepted with, when there was one.
  */
 readonly class Mail
 {
@@ -37,6 +40,8 @@ readonly class Mail
         public array $tags = [],
         public array $metadata = [],
         public ?DateTimeImmutable $sendAt = null,
+        public ?string $heldBy = null,
+        public ?string $idempotencyKey = null,
     ) {}
 
     /**
@@ -61,6 +66,8 @@ readonly class Mail
             tags: isset($data['tags']) ? Payload::strings($data, 'tags') : [],
             metadata: isset($data['metadata']) && $data['metadata'] !== [] ? Payload::stringMap($data, 'metadata') : [],
             sendAt: Payload::nullableDate($data, 'send_at'),
+            heldBy: Payload::nullableString($data, 'held_by'),
+            idempotencyKey: Payload::nullableString($data, 'idempotency_key'),
         );
     }
 
@@ -68,6 +75,12 @@ readonly class Mail
     public function accepted(): bool
     {
         return in_array($this->status, ['queued', 'sent', 'scheduled'], true);
+    }
+
+    /** Whether Relay's own guard holds it: releasing it is refused (`mail_held_by_relay`), discarding is not. */
+    public function heldByRelay(): bool
+    {
+        return $this->status === 'quarantined' && $this->heldBy === 'relay';
     }
 
     /** Whether it waits for `$sendAt` and can still be cancelled. */
@@ -81,8 +94,14 @@ readonly class Mail
      *
      * @param  list<MailRecipient>|null  $recipients
      */
-    public function became(string $status, ?string $reason = null, ?array $recipients = null): self
+    public function became(string $status, ?string $reason = null, ?array $recipients = null, ?string $heldBy = null): self
     {
-        return new self($this->id, $status, $this->from, $this->subject, $this->createdAt, $reason, $this->verdicts, $recipients ?? $this->recipients, $this->sentAt, $this->tracksClicks, $this->tracksOpens, $this->tags, $this->metadata, $this->sendAt);
+        return new self($this->id, $status, $this->from, $this->subject, $this->createdAt, $reason, $this->verdicts, $recipients ?? $this->recipients, $this->sentAt, $this->tracksClicks, $this->tracksOpens, $this->tags, $this->metadata, $this->sendAt, $status === 'quarantined' ? ($heldBy ?? $this->heldBy ?? 'project') : null, $this->idempotencyKey);
+    }
+
+    /** The same mail with the key it was accepted with. Used by the fake. */
+    public function withIdempotencyKey(?string $key): self
+    {
+        return new self($this->id, $this->status, $this->from, $this->subject, $this->createdAt, $this->reason, $this->verdicts, $this->recipients, $this->sentAt, $this->tracksClicks, $this->tracksOpens, $this->tags, $this->metadata, $this->sendAt, $this->heldBy, $key);
     }
 }

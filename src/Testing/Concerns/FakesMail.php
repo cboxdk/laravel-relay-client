@@ -20,6 +20,7 @@ use Cbox\Relay\Client\Data\SuppressionReason;
 use Cbox\Relay\Client\Data\TrackingChanges;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayException;
+use Cbox\Relay\Client\Exceptions\RelayForbidden;
 use Cbox\Relay\Client\Testing\MailBatch;
 use Cbox\Relay\Client\Testing\Operation;
 use Cbox\Relay\Client\Testing\RecordedCall;
@@ -81,9 +82,9 @@ trait FakesMail
         $number = $this->nextNumber();
 
         $stored = new SendingDomain('sdm_fake_'.$number, $domain, 'pending', $this->now(), [
-            new DnsRecord('TXT', 'relay'.$number.'._domainkey.'.$domain, 'v=DKIM1; k=rsa; p=fake', 'dkim', true),
-            new DnsRecord('TXT', $domain, 'v=spf1 include:spf.cboxrelay.com ~all', 'spf', false),
-            new DnsRecord('TXT', '_dmarc.'.$domain, 'v=DMARC1; p=none', 'dmarc', false),
+            new DnsRecord('TXT', 'relay'.$number.'._domainkey.'.$domain, 'v=DKIM1; k=rsa; p=fake', 'dkim', true, 'unchecked'),
+            new DnsRecord('TXT', $domain, 'v=spf1 include:spf.cboxrelay.com ~all', 'spf', false, 'unchecked'),
+            new DnsRecord('TXT', '_dmarc.'.$domain, 'v=DMARC1; p=none', 'dmarc', false, 'unchecked'),
         ]);
 
         return $this->remember($idempotencyKey, $fingerprint, $this->domains[$bucket][$stored->id] = $stored);
@@ -134,8 +135,11 @@ trait FakesMail
             default => 'failed',
         };
 
+        // Each record says what the look found: all there, or none.
+        $records = array_map(fn (DnsRecord $record): DnsRecord => new DnsRecord($record->type, $record->name, $record->value, $record->purpose, $record->required, $this->dnsPublished ? 'found' : 'missing'), $domain->records);
+
         return $this->domains[$bucket][$id] = new SendingDomain(
-            $domain->id, $domain->domain, $status, $domain->createdAt, $domain->records,
+            $domain->id, $domain->domain, $status, $domain->createdAt, $records,
             $status === 'verified' ? ($domain->verifiedAt ?? $this->now()) : $domain->verifiedAt, $this->now(), $domain->tracking,
         );
     }
@@ -232,13 +236,24 @@ trait FakesMail
         $this->record(new RecordedCall(Operation::SendMail, $project, idempotencyKey: $idempotencyKey, subject: $mail));
         $bucket = $this->bucket($project);
         $fingerprint = $this->fingerprint(Operation::SendMail, $bucket, $mail);
-        $replayed = $this->replayed($idempotencyKey, $fingerprint);
+
+        try {
+            $replayed = $this->replayed($idempotencyKey, $fingerprint);
+        } catch (RelayConflict $conflict) {
+            // The key was used for another mail: say which one left the first time.
+            $first = $idempotencyKey === null ? null : array_find($this->mails[$bucket] ?? [], static fn (Mail $known): bool => $known->idempotencyKey === $idempotencyKey);
+
+            throw $first === null || $conflict->problem === null ? $conflict : new RelayConflict(
+                $conflict->getMessage(),
+                new Problem($conflict->problem->status, $conflict->problem->title, $conflict->problem->detail, $conflict->problem->type, extensions: ['mail_id' => $first->id]),
+            );
+        }
 
         if ($replayed instanceof Mail) {
             return $replayed;
         }
 
-        return $this->remember($idempotencyKey, $fingerprint, $this->acceptMail($bucket, $mail, $project));
+        return $this->remember($idempotencyKey, $fingerprint, $this->acceptMail($bucket, $mail, $project, $idempotencyKey));
     }
 
     public function sendMailBatch(array $mails, ?string $idempotencyKey = null, ?string $project = null): array
@@ -262,7 +277,7 @@ trait FakesMail
 
         foreach ($mails as $mail) {
             try {
-                $results[] = new MailBatchResult(202, $this->acceptMail($bucket, $mail, $project));
+                $results[] = new MailBatchResult(202, $this->acceptMail($bucket, $mail, $project, $idempotencyKey));
             } catch (RelayException $e) {
                 $results[] = new MailBatchResult($e->status() ?? 422, problem: $e->problem);
             }
@@ -284,9 +299,10 @@ trait FakesMail
     }
 
     /** Store one mail as the real service would, or throw what it would refuse it for. */
-    private function acceptMail(string $bucket, OutgoingMail $mail, ?string $project): Mail
+    private function acceptMail(string $bucket, OutgoingMail $mail, ?string $project, ?string $idempotencyKey = null): Mail
     {
         $this->guardMail($bucket, $mail);
+        $this->guardSendingLimit($bucket, count($mail->to) + count($mail->cc) + count($mail->bcc));
 
         $recipients = [];
 
@@ -321,6 +337,7 @@ trait FakesMail
             tags: $mail->tags,
             metadata: $mail->metadata,
             sendAt: $later ? $sendAt : null,
+            idempotencyKey: $idempotencyKey,
         );
 
         $this->mails[$bucket][$stored->id] = $stored;
@@ -341,6 +358,10 @@ trait FakesMail
         $this->record(new RecordedCall(Operation::ReleaseMail, $project, $id));
         $bucket = $this->bucket($project);
         $mail = $this->heldMailIn($bucket, $id);
+
+        if ($mail->heldByRelay()) {
+            throw new RelayForbidden('Cbox Relay answered 403 Forbidden: Relay holds this mail; only Relay lets it go.', new Problem(403, 'Forbidden', 'Relay holds this mail; only Relay lets it go.', self::PROBLEMS.'mail_held_by_relay'));
+        }
 
         // Queued as if it had not been held; whoever was suppressed since is left out.
         $recipients = array_map(fn (MailRecipient $recipient): MailRecipient => isset($this->suppressions[$bucket][strtolower($recipient->address)])
@@ -421,7 +442,11 @@ trait FakesMail
         return $this->suppressions[$bucket][strtolower($address)] = new Suppression(strtolower($address), $reason->value, $this->now(), $source);
     }
 
-    /** Set what became of a mail, as the queue would have (`sent`, `failed`, `quarantined`, …). Every queued recipient follows a `sent` or `failed`. */
+    /**
+     * Set what became of a mail, as the queue would have (`sent`, `failed`, `quarantined`, …). Every queued
+     * recipient follows a `sent` or `failed`. A `quarantined` mail is held by the project's own threshold;
+     * `holdMailByRelay()` holds one as Relay's guard does.
+     */
     public function markMail(string $id, string $status, ?string $reason = null): static
     {
         foreach ($this->mails as $bucket => $mails) {
@@ -435,6 +460,7 @@ trait FakesMail
                 $this->mails[$bucket][$id] = $status !== 'sent' ? $changed : new Mail(
                     $changed->id, $changed->status, $changed->from, $changed->subject, $changed->createdAt, $changed->reason, $changed->verdicts, $changed->recipients,
                     $this->now(), $changed->tracksClicks, $changed->tracksOpens, $changed->tags, $changed->metadata, $changed->sendAt,
+                    $changed->heldBy, $changed->idempotencyKey,
                 );
             }
         }

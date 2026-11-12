@@ -15,9 +15,16 @@ use Cbox\Relay\Client\Webhooks\Events\MailClicked;
 use Cbox\Relay\Client\Webhooks\Events\MailComplained;
 use Cbox\Relay\Client\Webhooks\Events\MailDeferred;
 use Cbox\Relay\Client\Webhooks\Events\MailDelivered;
+use Cbox\Relay\Client\Webhooks\Events\MailDiscarded;
 use Cbox\Relay\Client\Webhooks\Events\MailOpened;
 use Cbox\Relay\Client\Webhooks\Events\MailReceived;
+use Cbox\Relay\Client\Webhooks\Events\MailReleased;
+use Cbox\Relay\Client\Webhooks\Events\ProjectLimitRequestDecided;
+use Cbox\Relay\Client\Webhooks\Events\ProjectLimitRequested;
+use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundLimited;
+use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundLimitsChanged;
 use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundPaused;
+use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundWatched;
 use Cbox\Relay\Client\Webhooks\Events\PushDelivered;
 use Cbox\Relay\Client\Webhooks\Events\PushExpired;
 use DateTimeImmutable;
@@ -45,6 +52,8 @@ readonly class IncomingWebhook
         'mail.received' => MailReceived::class,
         'mail.accepted' => MailAccepted::class,
         'mail.blocked' => MailBlocked::class,
+        'mail.released' => MailReleased::class,
+        'mail.discarded' => MailDiscarded::class,
         'mail.delivered' => MailDelivered::class,
         'mail.deferred' => MailDeferred::class,
         'mail.bounced' => MailBounced::class,
@@ -55,6 +64,11 @@ readonly class IncomingWebhook
         'push.expired' => PushExpired::class,
         'endpoint.disabled' => EndpointDisabled::class,
         'project.outbound_paused' => ProjectOutboundPaused::class,
+        'project.outbound_limited' => ProjectOutboundLimited::class,
+        'project.outbound_watched' => ProjectOutboundWatched::class,
+        'project.outbound_limits_changed' => ProjectOutboundLimitsChanged::class,
+        'project.limit_requested' => ProjectLimitRequested::class,
+        'project.limit_request_decided' => ProjectLimitRequestDecided::class,
     ];
 
     /**
