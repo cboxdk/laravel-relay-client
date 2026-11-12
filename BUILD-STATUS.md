@@ -52,6 +52,7 @@ Released as v0.1.0. It has not been run against a live Relay.
 - Click tracking: `Domains::trackClicks()` and `tracking()` (`PATCH /v1/domains/{id}`),
   `OutgoingMail::$trackClicks`, `Mail::$tracksClicks`, `SendingDomain::$tracking`, and the
   event `mail.clicked` as `Webhooks\Events\MailClicked`.
+- The event `mail.delivered` as `Webhooks\Events\MailDelivered`.
 - One receiving address: `InboundRoutes::registerAddress()` and `registerForwarding()`
   (route type `address`, `local_part`, `forward_for`).
 - `Notifications\RelayWebPushChannel` and `WebPushMessage`.

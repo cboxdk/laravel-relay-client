@@ -146,7 +146,7 @@ trait FakesMail
 
             // Every recipient the mail server took counts as sent, whatever came back after.
             foreach ($mail->recipients as $recipient) {
-                if (in_array($recipient->status, ['sent', 'bounced', 'complained'], true)) {
+                if (in_array($recipient->status, ['sent', 'delivered', 'bounced', 'complained'], true)) {
                     $counts['sent']++;
                 }
 
@@ -358,7 +358,7 @@ trait FakesMail
 
     /**
      * Set what became of one recipient of a mail, as feedback from the receiving side
-     * would have (`bounced`, `complained`, `sent`, `failed`). It shows in the domain's reputation.
+     * would have (`delivered`, `bounced`, `complained`, `sent`, `failed`). It shows in the domain's reputation.
      */
     public function markRecipient(string $mailId, string $address, string $status, ?string $detail = null): static
     {

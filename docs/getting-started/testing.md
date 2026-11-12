@@ -263,7 +263,7 @@ promises about the service.
   project (a second one answers 422); the real service's answer for that is not described.
   No provider call is ever taken and nothing is forwarded.
 - A domain's reputation counts the recipients of the project's stored mail from that
-  domain that are `sent`, `bounced` or `complained`, over all time, with a window of 7.
+  domain that are `sent`, `delivered`, `bounced` or `complained`, over all time, with a window of 7.
   Set them with `markMail()` and `markRecipient()`.
 - A push to a subscription the project does not have answers 404; a payload over 3000
   bytes 422. Messages stay `queued` until `markPush()`.

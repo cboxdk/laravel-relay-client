@@ -15,6 +15,8 @@ All notable changes to this package are documented here. The format follows
   `relay` mail transport; `Mail::$tracksClicks` is the answer it was accepted with.
 - **`mail.clicked`** as `Webhooks\Events\MailClicked` (`id`, `projectId`, `linkId`, `url`,
   `clickedAt`). It names no recipient.
+- **`mail.delivered`** as `Webhooks\Events\MailDelivered` (`id`, `projectId`, `recipient`): the
+  recipient's server accepted the mail. It says nothing about inbox or junk.
 - **One receiving address.** `Relay::inboundRoutes()->registerAddress('support@acme.dk')`
   and `->registerForwarding('billing@acme.dk')`, which gets an address of Relay's that
   yours forwards to. `InboundRouteType::Address`, `InboundRoute::$address` and
