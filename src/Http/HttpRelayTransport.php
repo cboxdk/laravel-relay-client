@@ -38,6 +38,7 @@ use Cbox\Relay\Client\Data\Source;
 use Cbox\Relay\Client\Data\SourceScheme;
 use Cbox\Relay\Client\Data\Suppression;
 use Cbox\Relay\Client\Data\SuppressionReason;
+use Cbox\Relay\Client\Data\TrackingChanges;
 use Cbox\Relay\Client\Exceptions\RelayMalformedResponse;
 use Cbox\Relay\Client\Exceptions\RelayNotConfigured;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
@@ -276,9 +277,9 @@ class HttpRelayTransport implements RelayTransport
         return $this->items($this->send('GET', '/v1/inbound/routes', project: $project), InboundRoute::fromArray(...));
     }
 
-    public function createInboundRoute(InboundRouteType $type, string $domain, ?string $prefix = null, ?string $idempotencyKey = null, ?string $project = null): InboundRoute
+    public function createInboundRoute(InboundRouteType $type, ?string $domain = null, ?string $prefix = null, ?string $idempotencyKey = null, ?string $project = null, ?string $localPart = null, ?string $forwardFor = null): InboundRoute
     {
-        $body = Payload::compact(['type' => $type->value, 'domain' => $domain, 'prefix' => $prefix]);
+        $body = Payload::compact(['type' => $type->value, 'domain' => $domain, 'prefix' => $prefix, 'local_part' => $localPart, 'forward_for' => $forwardFor]);
 
         return InboundRoute::fromArray($this->body($this->send('POST', '/v1/inbound/routes', body: $body, project: $project, idempotencyKey: $idempotencyKey)));
     }
@@ -371,6 +372,11 @@ class HttpRelayTransport implements RelayTransport
         $body = $this->find('/v1/domains/'.rawurlencode($id), $project);
 
         return $body === null ? null : SendingDomain::fromArray($body);
+    }
+
+    public function updateDomain(string $id, TrackingChanges $tracking, ?string $project = null): SendingDomain
+    {
+        return SendingDomain::fromArray($this->body($this->send('PATCH', '/v1/domains/'.rawurlencode($id), body: $tracking->toArray(), project: $project)));
     }
 
     public function verifyDomain(string $id, ?string $project = null): SendingDomain

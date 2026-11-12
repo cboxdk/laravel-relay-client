@@ -1,14 +1,14 @@
 ---
 title: Inbound mail
-description: Claim address patterns for a project, read received mail with its content and attachment links, and erase it.
+description: Claim addresses for a project (one address, a domain, or one Relay gives you), read received mail with its content and attachment links, and erase it.
 weight: 29
 ---
 
 # Inbound mail
 
-> This package talks to Relay's API. Whether mail actually arrives depends on Relay's
-> receiving servers, which its API guide says are not running yet. See Relay's own
-> status. Everything below works against the API and the [fake](../getting-started/testing.md).
+> This package talks to Relay's API; Relay's own receiving servers take the mail. The
+> package's tests run against the API description and the [fake](../getting-started/testing.md),
+> not against a running Relay.
 
 ## Routes
 
@@ -27,6 +27,32 @@ $routes->register(InboundRouteType::Prefix, 'cbox.email', prefix: 'r-');   // pe
 $routes->list();        // list<InboundRoute>
 $routes->remove($id);   // mail already received is kept
 ```
+
+### One address
+
+```php
+$route = $routes->registerAddress('support@acme.dk');
+
+$route->address;        // 'support@acme.dk'
+$route->active();       // true at once when the project already sends from acme.dk
+$route->verification;   // otherwise the TXT record that proves the domain; publish it, then verify()
+```
+
+A domain the project already sends from needs no second proof: its DKIM record shows it
+is yours. Mail arrives once the domain's MX records point at Relay, which moves **every**
+mailbox at the domain. To leave your mail where it is and receive one address at Relay,
+forward it instead:
+
+```php
+$route = $routes->registerForwarding('billing@acme.dk');
+
+$route->address;      // an address at Relay's own domain: forward billing@acme.dk to it in your mail system
+$route->forwardFor;   // 'billing@acme.dk'
+$route->active();     // true at once: there is nothing to prove and nothing to change in DNS
+```
+
+Relay does not check that the forwarding is set up, and it does not send received mail
+on to another mailbox: the mail is stored and reaches you as `mail.received`.
 
 A pattern has one owner; asking for one that is taken answers 422 (`RelayInvalid`).
 `verify()` answers the route either way: `$route->status` says whether the record was

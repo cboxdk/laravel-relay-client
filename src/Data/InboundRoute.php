@@ -9,9 +9,13 @@ use DateTimeImmutable;
 /**
  * A pattern of addresses a project receives mail for. `$pattern` is the claim as a person
  *
- * writes it (`*@acme.dk`, `r-*@cbox.email`). A route that is `pending` receives nothing
- * yet; `$verification` is the DNS record that proves a domain is yours, null when none
- * is needed.
+ * writes it (`*@acme.dk`, `r-*@cbox.email`, `support@acme.dk`). A route that is `pending`
+ * receives nothing yet; `$verification` is the DNS record that proves a domain is yours,
+ * null when none is needed.
+ *
+ * For one address (`type` `address`), `$address` is the address mail is received at. When
+ * that address is one of Relay's standing in for yours, `$forwardFor` is yours: the one
+ * you forward from.
  */
 readonly class InboundRoute
 {
@@ -25,6 +29,8 @@ readonly class InboundRoute
         public ?string $prefix = null,
         public ?DnsRecord $verification = null,
         public ?DateTimeImmutable $verifiedAt = null,
+        public ?string $address = null,
+        public ?string $forwardFor = null,
     ) {}
 
     /**
@@ -44,6 +50,8 @@ readonly class InboundRoute
             prefix: Payload::nullableString($data, 'prefix'),
             verification: $verification === null ? null : DnsRecord::fromArray($verification),
             verifiedAt: Payload::nullableDate($data, 'verified_at'),
+            address: Payload::nullableString($data, 'address'),
+            forwardFor: Payload::nullableString($data, 'forward_for'),
         );
     }
 

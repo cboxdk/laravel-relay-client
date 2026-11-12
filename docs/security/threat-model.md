@@ -42,8 +42,8 @@ organizations and projects, and stores data is the service's own concern.
   With no secret configured it refuses everything (500): an unset variable does not
   open the route.
 - **The mail transport drops what Relay does not let a sender set.** Headers outside the
-  allowed set never leave your app, and the two control headers (`X-Relay-Project`,
-  `X-Relay-Idempotency-Key`) are never passed on.
+  allowed set never leave your app, and the three control headers (`X-Relay-Project`,
+  `X-Relay-Idempotency-Key`, `X-Relay-Track-Clicks`) are never passed on.
 
 ## What the client does not do
 

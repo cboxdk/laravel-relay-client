@@ -20,6 +20,9 @@ use PHPUnit\Framework\Assert;
 /** Inbound mail, in memory: routes are really claimed, received mail is what the test seeded. */
 trait FakesInbound
 {
+    /** The domain the fake's forwarding addresses are at, as Relay's own receiving domain is in production. */
+    public const string FORWARDING_DOMAIN = 'inbound.cboxrelay.com';
+
     /** @var array<string, array<string, InboundRoute>> by project, then id */
     private array $inboundRoutes = [];
 
@@ -36,23 +39,49 @@ trait FakesInbound
         return array_values($this->inboundRoutes[$this->bucket($project)] ?? []);
     }
 
-    public function createInboundRoute(InboundRouteType $type, string $domain, ?string $prefix = null, ?string $idempotencyKey = null, ?string $project = null): InboundRoute
+    public function createInboundRoute(InboundRouteType $type, ?string $domain = null, ?string $prefix = null, ?string $idempotencyKey = null, ?string $project = null, ?string $localPart = null, ?string $forwardFor = null): InboundRoute
     {
-        $this->record(new RecordedCall(Operation::CreateInboundRoute, $project, $domain, $prefix, idempotencyKey: $idempotencyKey));
+        $this->record(new RecordedCall(Operation::CreateInboundRoute, $project, $domain ?? $forwardFor, $prefix ?? $localPart, idempotencyKey: $idempotencyKey));
         $bucket = $this->bucket($project);
-        $fingerprint = $this->fingerprint(Operation::CreateInboundRoute, $bucket, [$type, $domain, $prefix]);
+        $fingerprint = $this->fingerprint(Operation::CreateInboundRoute, $bucket, [$type, $domain, $prefix, $localPart, $forwardFor]);
         $replayed = $this->replayed($idempotencyKey, $fingerprint);
 
         if ($replayed instanceof InboundRoute) {
             return $replayed;
         }
 
+        if ($forwardFor !== null && $type !== InboundRouteType::Address) {
+            throw $this->invalid('forward_for', 'Only an address can stand in for another.');
+        }
+
         if ($type === InboundRouteType::Prefix && ($prefix === null || $prefix === '')) {
             throw $this->invalid('prefix', 'A prefix route needs a prefix.');
         }
 
+        $number = $this->nextNumber();
+        $forwarding = $type === InboundRouteType::Address && $forwardFor !== null && ($domain === null || $domain === '');
+
+        if ($forwarding) {
+            // An address of Relay's own that stands in for the customer's: a readable name and a tail nobody can guess.
+            $forwardFor = strtolower($forwardFor);
+            $domain = self::FORWARDING_DOMAIN;
+            $localPart = trim((string) preg_replace('/[^a-z0-9]+/', '-', $forwardFor), '-').'-fake'.$number;
+        }
+
+        if ($domain === null || $domain === '') {
+            throw $this->invalid('domain', 'A route needs a domain.');
+        }
+
+        if ($type === InboundRouteType::Address && ($localPart === null || $localPart === '')) {
+            throw $this->invalid('local_part', 'An address needs the part before the @.');
+        }
+
         $domain = strtolower($domain);
-        $pattern = ($type === InboundRouteType::Prefix ? $prefix : '').'*@'.$domain;
+        $pattern = match ($type) {
+            InboundRouteType::Address => strtolower((string) $localPart).'@'.$domain,
+            InboundRouteType::Prefix => $prefix.'*@'.$domain,
+            default => '*@'.$domain,
+        };
 
         foreach ($this->inboundRoutes as $routes) {
             if (array_find($routes, static fn (InboundRoute $route): bool => $route->pattern === $pattern) !== null) {
@@ -60,19 +89,23 @@ trait FakesInbound
             }
         }
 
-        $number = $this->nextNumber();
+        // A name under the shared domain and a forwarding address work at once, and so does anything
+        // at a domain the project already sends from; the others wait for DNS or for the operator.
+        $own = in_array($type, [InboundRouteType::Domain, InboundRouteType::Address], true) && ! $forwarding;
+        $active = $type === InboundRouteType::Subdomain || $forwarding || ($own && $this->sendsFrom($bucket, $domain));
 
         $route = new InboundRoute(
             id: 'irt_fake_'.$number,
             type: $type->value,
             domain: $domain,
             pattern: $pattern,
-            // A name under the shared domain is active at once; the others wait for DNS or for the operator.
-            status: $type === InboundRouteType::Subdomain ? 'active' : 'pending',
+            status: $active ? 'active' : 'pending',
             createdAt: $this->now(),
             prefix: $type === InboundRouteType::Prefix ? $prefix : null,
-            verification: $type === InboundRouteType::Domain ? new DnsRecord('TXT', '_cbox-relay.'.$domain, 'cbox-relay-verification=fake_'.$number) : null,
-            verifiedAt: $type === InboundRouteType::Subdomain ? $this->now() : null,
+            verification: $own && ! $active ? new DnsRecord('TXT', '_relay-challenge.'.$domain, 'relay-verify=fake_'.$number) : null,
+            verifiedAt: $active ? $this->now() : null,
+            address: $type === InboundRouteType::Address ? $pattern : null,
+            forwardFor: $forwarding ? $forwardFor : null,
         );
 
         $this->inboundRoutes[$bucket][$route->id] = $route;
@@ -86,8 +119,8 @@ trait FakesInbound
         $bucket = $this->bucket($project);
         $route = $this->inboundRouteIn($bucket, $id);
 
-        // Only a domain is proven by DNS; a prefix waits for the operator whatever is asked.
-        if ($route->type !== InboundRouteType::Domain->value || $route->active() || ! $this->dnsPublished) {
+        // Only a domain of the customer's own is proven by DNS; a prefix waits for the operator whatever is asked.
+        if ($route->verification === null || $route->active() || ! $this->dnsPublished) {
             return $route;
         }
 
@@ -235,6 +268,6 @@ trait FakesInbound
 
     private function activated(InboundRoute $route): InboundRoute
     {
-        return new InboundRoute($route->id, $route->type, $route->domain, $route->pattern, 'active', $route->createdAt, $route->prefix, $route->verification, $this->now());
+        return new InboundRoute($route->id, $route->type, $route->domain, $route->pattern, 'active', $route->createdAt, $route->prefix, null, $this->now(), $route->address, $route->forwardFor);
     }
 }

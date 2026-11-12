@@ -47,8 +47,13 @@ Released as v0.1.0. It has not been run against a live Relay.
   `publishBatch()`. An event's `subject` travels with all of them, and
   `eraseSubject()` removes a subject's events.
 - The `relay` mail transport (`Mail\RelayMailTransport`, `Mail\EmailMapper`): from, to,
-  cc, bcc, reply-to, subject, html, text, allowed headers, attachments as base64; project
-  and idempotency key from control headers.
+  cc, bcc, reply-to, subject, html, text, allowed headers, attachments as base64; project,
+  idempotency key and click tracking from control headers.
+- Click tracking: `Domains::trackClicks()` and `tracking()` (`PATCH /v1/domains/{id}`),
+  `OutgoingMail::$trackClicks`, `Mail::$tracksClicks`, `SendingDomain::$tracking`, and the
+  event `mail.clicked` as `Webhooks\Events\MailClicked`.
+- One receiving address: `InboundRoutes::registerAddress()` and `registerForwarding()`
+  (route type `address`, `local_part`, `forward_for`).
 - `Notifications\RelayWebPushChannel` and `WebPushMessage`.
 - The `relay.webhook` middleware, `Webhooks\WebhookSignature` (the `cbox` scheme,
   tolerance, several secrets), `Webhooks\IncomingWebhook` (the `cbox` and CloudEvents
@@ -84,9 +89,10 @@ Released as v0.1.0. It has not been run against a live Relay.
 - **Against a running Relay.** Every HTTP test runs against `Http::fake()` with bodies
   written from the API description, so the shapes are as described, not as observed.
   The first contract test against the real service decides whether they agree.
-- **The service behind the API.** Relay's API guides say its outbound mail servers and
-  its receiving servers are not running yet: no mail leaves Relay and none arrives.
-  This package cannot change or observe that. See Relay's own status.
+- **The service behind the API.** Relay's mail servers run since 12 November 2026, by
+  Relay's own account. This package has not sent or received a mail through them.
+- **Click tracking and single addresses against a running Relay.** Written from the API
+  description on the day Relay gained them.
 - **The webhook signature against a live delivery.** It is tested against a vector made
   with `cboxdk/laravel-webhook-signature` (the implementation Relay signs with), plus
   the refusals. No delivery from the service has been verified with it.

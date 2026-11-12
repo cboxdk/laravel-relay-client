@@ -6,6 +6,7 @@ namespace Cbox\Relay\Client\Testing\Concerns;
 
 use Cbox\Relay\Client\Data\DnsRecord;
 use Cbox\Relay\Client\Data\DomainReputation;
+use Cbox\Relay\Client\Data\DomainTracking;
 use Cbox\Relay\Client\Data\Mail;
 use Cbox\Relay\Client\Data\MailRecipient;
 use Cbox\Relay\Client\Data\OutgoingMail;
@@ -14,14 +15,19 @@ use Cbox\Relay\Client\Data\Problem;
 use Cbox\Relay\Client\Data\SendingDomain;
 use Cbox\Relay\Client\Data\Suppression;
 use Cbox\Relay\Client\Data\SuppressionReason;
+use Cbox\Relay\Client\Data\TrackingChanges;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Testing\Operation;
 use Cbox\Relay\Client\Testing\RecordedCall;
+use InvalidArgumentException;
 use PHPUnit\Framework\Assert;
 
 /** Outbound mail, in memory: domains and suppressions are stored, mail is recorded and never leaves. */
 trait FakesMail
 {
+    /** Where a domain's own host for tracked links points in the fake, as Relay's tracking host is in production. */
+    public const string TRACKING_HOST = 'links.cboxrelay.com';
+
     /** @var array<string, array<string, SendingDomain>> by project, then id */
     private array $domains = [];
 
@@ -82,6 +88,31 @@ trait FakesMail
         return $this->domains[$this->bucket($project)][$id] ?? null;
     }
 
+    public function updateDomain(string $id, TrackingChanges $tracking, ?string $project = null): SendingDomain
+    {
+        $this->record(new RecordedCall(Operation::UpdateDomain, $project, $id, subject: $tracking));
+        $bucket = $this->bucket($project);
+        $domain = $this->domainIn($bucket, $id);
+        $host = $tracking->clearHost && $tracking->host === null ? null : strtolower($tracking->host ?? $domain->tracking->host ?? '');
+        $host = $host === '' ? null : $host;
+
+        if ($host !== null && preg_match('/\A(?=.{1,253}\z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\z/', $host) !== 1) {
+            throw $this->invalid('tracking.host', 'That is not a host name.');
+        }
+
+        // A host of the domain's own is a record to publish; without one the record goes.
+        $records = array_values(array_filter($domain->records, static fn (DnsRecord $record): bool => $record->purpose !== 'tracking'));
+
+        if ($host !== null) {
+            $records[] = new DnsRecord('CNAME', $host, self::TRACKING_HOST, 'tracking', false);
+        }
+
+        return $this->domains[$bucket][$id] = new SendingDomain(
+            $domain->id, $domain->domain, $domain->status, $domain->createdAt, $records, $domain->verifiedAt, $domain->checkedAt,
+            new DomainTracking($tracking->clicks ?? $domain->tracking->clicks, $host),
+        );
+    }
+
     public function verifyDomain(string $id, ?string $project = null): SendingDomain
     {
         $this->record(new RecordedCall(Operation::VerifyDomain, $project, $id));
@@ -97,7 +128,7 @@ trait FakesMail
 
         return $this->domains[$bucket][$id] = new SendingDomain(
             $domain->id, $domain->domain, $status, $domain->createdAt, $domain->records,
-            $status === 'verified' ? ($domain->verifiedAt ?? $this->now()) : $domain->verifiedAt, $this->now(),
+            $status === 'verified' ? ($domain->verifiedAt ?? $this->now()) : $domain->verifiedAt, $this->now(), $domain->tracking,
         );
     }
 
@@ -221,6 +252,8 @@ trait FakesMail
             reason: $blocked ? 'Every recipient is on the suppression list.' : null,
             verdicts: array_fill_keys(self::VERDICTS, 0.0),
             recipients: $recipients,
+            // The mail's own answer wins; left out, the sending domain's setting decides.
+            tracksClicks: $mail->trackClicks ?? $this->domainTracksClicks($bucket, $mail->from->address),
         );
 
         $this->mails[$bucket][$stored->id] = $stored;
@@ -249,7 +282,7 @@ trait FakesMail
 
         $this->releasedMail[] = $id;
 
-        return $this->mails[$bucket][$id] = new Mail($mail->id, 'queued', $mail->from, $mail->subject, $mail->createdAt, null, $mail->verdicts, $recipients, $mail->sentAt);
+        return $this->mails[$bucket][$id] = new Mail($mail->id, 'queued', $mail->from, $mail->subject, $mail->createdAt, null, $mail->verdicts, $recipients, $mail->sentAt, $mail->tracksClicks);
     }
 
     public function discardMail(string $id, ?string $project = null): Mail
@@ -260,7 +293,7 @@ trait FakesMail
 
         $this->discardedMail[] = $id;
 
-        return $this->mails[$bucket][$id] = new Mail($mail->id, 'blocked', $mail->from, $mail->subject, $mail->createdAt, 'The held mail was discarded.', $mail->verdicts, $mail->recipients, $mail->sentAt);
+        return $this->mails[$bucket][$id] = new Mail($mail->id, 'blocked', $mail->from, $mail->subject, $mail->createdAt, 'The held mail was discarded.', $mail->verdicts, $mail->recipients, $mail->sentAt, $mail->tracksClicks);
     }
 
     /**
@@ -273,6 +306,25 @@ trait FakesMail
         $stored = new SendingDomain('sdm_fake_'.$this->nextNumber(), strtolower($domain), $status, $this->now(), verifiedAt: $status === 'verified' ? $this->now() : null);
 
         return $this->domains[$bucket][$stored->id] = $stored;
+    }
+
+    /**
+     * Set a stored domain's click tracking as if it had been changed earlier. Records no call.
+     */
+    public function seedTracking(string $domainId, bool $clicks = true, ?string $host = null): SendingDomain
+    {
+        foreach ($this->domains as $bucket => $domains) {
+            $domain = $domains[$domainId] ?? null;
+
+            if ($domain !== null) {
+                return $this->domains[$bucket][$domainId] = new SendingDomain(
+                    $domain->id, $domain->domain, $domain->status, $domain->createdAt, $domain->records, $domain->verifiedAt, $domain->checkedAt,
+                    new DomainTracking($clicks, $host),
+                );
+            }
+        }
+
+        throw new InvalidArgumentException("The fake holds no sending domain '{$domainId}'.");
     }
 
     /** Put an address on a project's suppression list (the project is stored first if it is not there). Records no call. */
@@ -296,6 +348,7 @@ trait FakesMail
                         ? new MailRecipient($recipient->address, $recipient->type, $status, $reason)
                         : $recipient, $mail->recipients),
                     $status === 'sent' ? $this->now() : $mail->sentAt,
+                    $mail->tracksClicks,
                 );
             }
         }
@@ -319,6 +372,7 @@ trait FakesMail
                         ? new MailRecipient($recipient->address, $recipient->type, $status, $detail)
                         : $recipient, $mail->recipients),
                     $mail->sentAt,
+                    $mail->tracksClicks,
                 );
             }
         }
@@ -360,6 +414,20 @@ trait FakesMail
         Assert::assertCount(0, $this->sentMail, 'Mail was sent through Cbox Relay.');
     }
 
+    /** The stored sending domain `$id` has click tracking on (or, with false, off). */
+    public function assertDomainTracksClicks(string $id, bool $clicks = true): void
+    {
+        foreach ($this->domains as $domains) {
+            if (isset($domains[$id])) {
+                Assert::assertSame($clicks, $domains[$id]->tracking->clicks, "The sending domain '{$id}' ".($clicks ? 'does not track' : 'tracks').' clicks in Cbox Relay.');
+
+                return;
+            }
+        }
+
+        Assert::fail("Cbox Relay holds no sending domain '{$id}'.");
+    }
+
     /** The held mail `$id` was released. */
     public function assertMailReleased(string $id): void
     {
@@ -385,6 +453,21 @@ trait FakesMail
     }
 
     /** What the real service refuses a mail for, as far as the fake can know. */
+    /** Whether the project sends from the domain: registered and verified. */
+    private function sendsFrom(string $bucket, string $domain): bool
+    {
+        return array_any($this->domains[$bucket] ?? [], static fn (SendingDomain $known): bool => $known->domain === strtolower($domain) && $known->verified());
+    }
+
+    /** What the sending domain of an address says about click tracking; false when the project has no such domain. */
+    private function domainTracksClicks(string $bucket, string $address): bool
+    {
+        $at = strrpos($address, '@');
+        $domain = $at === false ? '' : strtolower(substr($address, $at + 1));
+
+        return array_any($this->domains[$bucket] ?? [], static fn (SendingDomain $known): bool => $known->domain === $domain && $known->tracking->clicks);
+    }
+
     private function guardMail(string $bucket, OutgoingMail $mail): void
     {
         if ($mail->to === []) {

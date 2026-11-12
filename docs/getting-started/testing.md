@@ -117,7 +117,16 @@ $relay->assertMailDiscarded($mail->id);
 This covers `Relay::sendMail()` and everything sent through the `relay` mail transport,
 so a mailable is asserted the same way. `sentMail(): list<OutgoingMail>` gives the mails.
 
+Click tracking: `assertDomainTracksClicks(string $id, bool $clicks = true)` for a domain,
+and for one mail read what was handed over and what came back:
+
+```php
+$relay->assertMailSent(fn (OutgoingMail $mail): bool => $mail->trackClicks === false);   // what the mail itself said; null when it left it to the domain
+Relay::forProject('ws_1')->mail($id)?->tracksClicks;                                     // the answer: the mail's own, else its domain's
+```
+
 Helpers: `seedDomain(string $project, string $domain, string $status = 'verified')`,
+`seedTracking(string $domainId, bool $clicks = true, ?string $host = null)`,
 `seedSuppression(string $project, string $address, SuppressionReason $reason = Manual, ?string $source = null)`,
 `markMail(string $id, string $status, ?string $reason = null)`,
 `markRecipient(string $mailId, string $address, string $status, ?string $detail = null)`
@@ -161,10 +170,13 @@ nothing by itself.
 ## Inbound mail
 
 ```php
+use Cbox\Relay\Client\Data\InboundRoute;
+
 $mail = $relay->seedInbound('ws_1', recipient: 'hello@acme.dk', from: 'ann@example.com', subject: 'Hi', text: 'Hi there');
 
 $relay->assertInboundErased($mail->id);
 $relay->assertInboundRouteRegistered('*@acme.dk');
+$relay->assertInboundRouteRegistered('support@acme.dk', fn (InboundRoute $route): bool => $route->active());
 ```
 
 `seedInbound()` also takes `html`, `kind`, `attachments`, `headers`, `authentication`,
@@ -264,6 +276,13 @@ promises about the service.
 - Verifying a domain or a domain route finds its DNS record unless `dnsPublished(false)`.
   A subdomain route is active at once; a prefix route stays pending until
   `activateInboundRoute()`.
+- One address is active at once at a domain the project has a verified sending domain
+  for, and pending with a record to publish at any other. A forwarding address is active
+  at once, at `inbound.cboxrelay.com`, with a name made from the address it stands in for.
+- A mail tracks clicks when it says so, else when the sending domain of its From address
+  does. The fake rewrites no links and never produces a click: build a `mail.clicked`
+  delivery yourself to test a listener. A domain's own tracking host gets a CNAME record
+  to `links.cboxrelay.com`; nothing checks it.
 - The same content judged twice for the same project gives the same judgment, with
   `created` false the second time.
 - Ids are `…_fake_N`. Secrets are `fake_secret_N`. The push key is a fixed string per project.

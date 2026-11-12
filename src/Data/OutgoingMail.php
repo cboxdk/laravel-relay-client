@@ -7,7 +7,8 @@ namespace Cbox\Relay\Client\Data;
 /**
  * A mail to send. At least one of `$html` and `$text` is needed. `$headers` may only
  * hold what Relay lets a sender set: any `X-` header and the ones in
- * {@see self::ALLOWED_HEADERS}; Relay refuses the whole mail for any other.
+ * {@see self::ALLOWED_HEADERS}; Relay refuses the whole mail for any other. `$trackClicks`
+ * turns click tracking on or off for this mail alone; null leaves it to the sending domain.
  */
 readonly class OutgoingMail
 {
@@ -32,7 +33,14 @@ readonly class OutgoingMail
         public ?string $replyTo = null,
         public array $headers = [],
         public array $attachments = [],
+        public ?bool $trackClicks = null,
     ) {}
+
+    /** The same mail with click tracking on or off for it alone; null leaves it to the sending domain. */
+    public function trackingClicks(?bool $clicks): self
+    {
+        return new self($this->from, $this->to, $this->subject, $this->html, $this->text, $this->cc, $this->bcc, $this->replyTo, $this->headers, $this->attachments, $clicks);
+    }
 
     /** Whether Relay lets a sender set the header `$name`. */
     public static function allowsHeader(string $name): bool
@@ -54,6 +62,7 @@ readonly class OutgoingMail
             'subject' => $this->subject,
             'html' => $this->html,
             'text' => $this->text,
+            'tracking' => $this->trackClicks === null ? null : ['clicks' => $this->trackClicks],
             'headers' => $this->headers === [] ? null : $this->headers,
             'attachments' => $this->attachments === [] ? null : array_map(static fn (MailAttachment $attachment): array => $attachment->toArray(), $this->attachments),
         ]);

@@ -9,6 +9,7 @@ use Cbox\Relay\Client\Webhooks\Events\EndpointDisabled;
 use Cbox\Relay\Client\Webhooks\Events\MailAccepted;
 use Cbox\Relay\Client\Webhooks\Events\MailBlocked;
 use Cbox\Relay\Client\Webhooks\Events\MailBounced;
+use Cbox\Relay\Client\Webhooks\Events\MailClicked;
 use Cbox\Relay\Client\Webhooks\Events\MailComplained;
 use Cbox\Relay\Client\Webhooks\Events\MailReceived;
 use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundPaused;
@@ -138,6 +139,8 @@ it('reads every one of Relay\'s own events', function (string $type, array $data
         MailBlocked::class, fn (MailBlocked $e): bool => $e->status === 'blocked' && $e->reason === 'Every recipient is suppressed.'],
     'mail.complained' => ['mail.complained', ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com'],
         MailComplained::class, fn (MailComplained $e): bool => $e->recipient === 'ann@example.com'],
+    'mail.clicked' => ['mail.clicked', ['id' => 'msg_1', 'project_id' => 'prj_1', 'link_id' => 'lnk_1', 'url' => 'https://acme.dk/orders/1', 'clicked_at' => '2026-11-12T10:05:00+00:00'],
+        MailClicked::class, fn (MailClicked $e): bool => $e->id === 'msg_1' && $e->linkId === 'lnk_1' && $e->url === 'https://acme.dk/orders/1' && $e->clickedAt->format('H:i') === '10:05'],
     'push.delivered' => ['push.delivered', ['id' => 'psm_1', 'project_id' => 'prj_1', 'subscription_id' => 'psb_1', 'external_ref' => null, 'attempts' => 2],
         PushDelivered::class, fn (PushDelivered $e): bool => $e->subscriptionId === 'psb_1' && $e->externalRef === null && $e->attempts === 2],
     'endpoint.disabled' => ['endpoint.disabled', ['endpoint_id' => 'ep_1', 'project_id' => 'prj_1', 'reason' => 'failing'],

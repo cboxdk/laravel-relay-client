@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Data;
 
 /**
- * A DNS record Relay asks you to publish. `$purpose` (`dkim`, `spf`, `dmarc`) and
+ * A DNS record Relay asks you to publish. `$purpose` (`dkim`, `spf`, `dmarc`, `tracking`) and
  * `$required` are set for a sending domain's records; an inbound route's one
  * verification record has no purpose and is always required.
  */

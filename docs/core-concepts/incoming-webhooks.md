@@ -132,6 +132,7 @@ other type (your own events come back in `$webhook->data`). All are in
 | `mail.blocked` | `MailBlocked` | the same |
 | `mail.bounced` | `MailBounced` | `id`, `projectId`, `recipient`, `permanent`, `status`, `diagnostic` |
 | `mail.complained` | `MailComplained` | `id`, `projectId`, `recipient` |
+| `mail.clicked` | `MailClicked` | `id`, `projectId`, `linkId`, `url`, `clickedAt`. No recipient: every recipient of a mail gets the same link |
 | `push.delivered` | `PushDelivered` | `id`, `projectId`, `subscriptionId`, `externalRef`, `attempts` |
 | `push.expired` | `PushExpired` | the same |
 | `endpoint.disabled` | `EndpointDisabled` | `endpointId`, `projectId`, `reason` |
