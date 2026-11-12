@@ -2,7 +2,7 @@
 
 What this package does today, and what it does not. It is the client for Cbox Relay's
 v1 API as described in the service's `docs/openapi/relay.v1.yaml` and its API guides.
-Released as v0.1.0; 0.2.0 is cut in the changelog and not released. It has not been run
+Released up to v0.2.2 on Packagist. It has not been run
 against a live Relay.
 
 ## Built and tested
@@ -67,6 +67,10 @@ against a live Relay.
 - The `relay` mail transport (`Mail\RelayMailTransport`, `Mail\EmailMapper`): from, to,
   cc, bcc, reply-to, subject, html, text, allowed headers, attachments as base64; project,
   idempotency key and click tracking from control headers.
+  Relay errors that leave the next mailer a chance (`RelayNotConfigured`,
+  `RelayUnavailable`, `RelayRateLimited`, `RelayUnauthorized`, `RelayForbidden`) are
+  thrown as Symfony `TransportException`s so Laravel's `failover` mailer moves on (0.2.2,
+  `tests/Feature/MailFailoverTest.php`); a 422 or 413 refusal stops the failover.
 - Click tracking: `Domains::trackClicks()` and `tracking()` (`PATCH /v1/domains/{id}`),
   `OutgoingMail::$trackClicks`, `Mail::$tracksClicks`, `SendingDomain::$tracking`, and the
   event `mail.clicked` as `Webhooks\Events\MailClicked`.

@@ -349,5 +349,38 @@ them in a `MessageSent` listener to keep the id. A mail Relay stored but did not
 (`blocked`, `quarantined`) is not an exception: check the status header.
 
 The HTTP call is made where the mail is sent from. Queue your mailables
-(`Mail::to(…)->queue(…)`) to keep it out of a request; a `RelayUnavailable` then
+(`Mail::to(…)->queue(…)`) to keep it out of a request; a send Relay could not take then
 retries with the job.
+
+### Errors and failover
+
+When Relay cannot take the mail right now, or not with this key, the transport throws a
+Symfony `TransportException` whose `getPrevious()` is the Relay exception:
+`RelayNotConfigured`, `RelayUnavailable` (unreachable, a timeout, a 5xx),
+`RelayRateLimited` (429) and `RelayUnauthorized` or `RelayForbidden` (401, 403). Laravel's
+`failover` mailer moves on to the next mailer for exactly that exception type:
+
+```php
+'failover' => ['transport' => 'failover', 'mailers' => ['relay', 'resend']],
+```
+
+When Relay refuses the mail itself, `RelayInvalid` (422) and `RelayTooLarge` (413) are
+thrown as they are. Symfony's failover does not catch them, so it stops and the send
+fails: the next mailer would only send the same bad mail. Every other Relay error (404,
+409, `RelayMalformedResponse`) is thrown as it is too.
+
+An `X-Relay-Idempotency-Key` still goes to Relay as the call's `Idempotency-Key`, also
+on the attempt that fails over. Symfony's failover keeps a mailer that failed out of
+turn for `retry_after` seconds (60 by default) in that process and sends through the
+next one meanwhile.
+
+Give `X-Relay-Idempotency-Key` a value that is stable per mail and comes from what the
+mail is about (`"invoice:{$invoice->id}"`), never a random one made at send time. A
+queued mailable that is retried, or a mail sent again after a timeout, then reaches Relay
+with the same key and goes out once. A fresh key on every attempt makes every attempt a
+new mail.
+
+The key only protects sends through Relay. If Relay took a mail but its answer was lost
+(a timeout after the request arrived), the failover sends it through the next mailer as
+well, and that mailer knows nothing of the key: the recipient may get it twice. That is
+the price of a failover; without one the mail would wait for the retry instead.

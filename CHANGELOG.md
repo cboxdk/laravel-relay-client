@@ -5,6 +5,31 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-13
+
+### Fixed
+
+- **Laravel's `failover` mailer now moves on from `relay`.** The `relay` mail transport
+  let Relay's own exceptions through, and Symfony's failover only moves on for a
+  `TransportExceptionInterface`, so `['relay', 'resend']` never fell back, not even with
+  Relay down or unconfigured. The transport now throws a Symfony `TransportException`,
+  with the Relay exception as its previous, when Relay cannot take the mail right now or
+  not with this key: `RelayNotConfigured`, `RelayUnavailable` (unreachable, a timeout, a
+  5xx), `RelayRateLimited` (429) and `RelayUnauthorized`/`RelayForbidden` (401, 403).
+  When Relay refuses the mail itself, `RelayInvalid` (422) and `RelayTooLarge` (413) are
+  still thrown as they are, so the failover stops and the send fails: the next mailer
+  would send the same bad mail.
+
+  Code that sends through the `relay` mailer and catches one of those five Relay
+  exceptions directly should catch `TransportException` and read `getPrevious()`.
+  `Relay::sendMail()` itself is unchanged and still throws the Relay exceptions.
+
+### Documentation
+
+- The mail docs say that `X-Relay-Idempotency-Key` must be stable per mail (derived from
+  what the mail is about, not random per attempt) for a retry to go out once, and that a
+  failover after a lost answer can send a mail through both mailers.
+
 ## [0.2.1] - 2026-11-12
 
 Everything here is additive: code written against 0.2.0 keeps working.
@@ -237,7 +262,8 @@ The first release.
   `illuminate/notifications`, `illuminate/routing`, `symfony/mailer` and `symfony/mime`
   besides `illuminate/contracts`, `illuminate/http` and `illuminate/support`.
 
-[Unreleased]: https://github.com/cboxdk/laravel-relay-client/compare/v0.2.1...main
+[Unreleased]: https://github.com/cboxdk/laravel-relay-client/compare/v0.2.2...main
+[0.2.2]: https://github.com/cboxdk/laravel-relay-client/releases/tag/v0.2.2
 [0.2.1]: https://github.com/cboxdk/laravel-relay-client/releases/tag/v0.2.1
 [0.2.0]: https://github.com/cboxdk/laravel-relay-client/releases/tag/v0.2.0
 [0.1.0]: https://github.com/cboxdk/laravel-relay-client/releases/tag/v0.1.0

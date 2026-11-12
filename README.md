@@ -111,6 +111,45 @@ Relay's errors are typed: `RelayUnauthorized`, `RelayForbidden`, `RelayNotFound`
 MAIL_MAILER=relay
 ```
 
+#### Failover
+
+Put Relay first in Laravel's `failover` mailer and another mailer behind it:
+
+```php
+// config/mail.php
+'mailers' => [
+    'relay' => ['transport' => 'relay'],
+    'resend' => ['transport' => 'resend'],
+    'failover' => ['transport' => 'failover', 'mailers' => ['relay', 'resend']],
+],
+```
+
+```dotenv
+MAIL_MAILER=failover
+```
+
+Laravel's failover moves on only for a Symfony `TransportException`. The `relay`
+transport throws one, with the Relay exception as its previous, when Relay cannot take
+the mail right now or not with this key:
+
+| Relay's answer | Exception (previous) | Failover |
+|----------------|----------------------|----------|
+| `RELAY_URL` or `RELAY_KEY` empty | `RelayNotConfigured` | moves on |
+| unreachable, timeout | `RelayUnavailable` | moves on |
+| 5xx | `RelayUnavailable` | moves on |
+| 429 (rate or sending limit) | `RelayRateLimited` | moves on |
+| 401, 403 (the key) | `RelayUnauthorized`, `RelayForbidden` | moves on |
+| 422 (the mail is invalid) | `RelayInvalid`, thrown as it is | stops, the send fails |
+| 413 (the mail is too large) | `RelayTooLarge`, thrown as it is | stops, the send fails |
+
+When Relay refuses the mail itself, the next mailer would send the same bad mail, so the
+send fails loudly instead. Any other Relay error (404, 409, an unreadable answer) is
+thrown as it is too. Since 0.2.2; with 0.2.1 and earlier the failover never moved on.
+
+Give `X-Relay-Idempotency-Key` a stable value per mail (`"invoice:{$id}"`), not a random
+one per attempt, so a retried or re-sent mail reaches Relay with the same key and goes
+out once.
+
 ### Receiving Relay's webhooks
 
 ```php
