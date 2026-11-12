@@ -7,17 +7,20 @@ namespace Cbox\Relay\Client\Data;
 use DateTimeImmutable;
 
 /**
- * A mail Relay stored and what became of it. `$status` is Relay's own string: `queued`,
- * `sent` (handed to the mail server, which is not the same as delivered to an inbox),
- * `quarantined`, `blocked` or `failed`. `$reason` says why it was held, blocked or failed.
- * `$tracksClicks` says whether the links in its HTML go through Relay: the answer the mail
- * was accepted with, from the mail itself or else its sending domain.
+ * A mail Relay stored and what became of it. `$status` is Relay's own string: `scheduled`
+ * (waiting for `$sendAt`), `queued`, `sent` (handed to the mail server, which is not the
+ * same as delivered to an inbox), `quarantined`, `blocked`, `failed` or `cancelled`.
+ * `$reason` says why it was held, blocked or failed. `$tracksClicks` and `$tracksOpens`
+ * are the answers the mail was accepted with, from the mail itself or else its sending
+ * domain. `$tags` and `$metadata` are what it was sent with.
  */
 readonly class Mail
 {
     /**
      * @param  array<string, float>  $verdicts  what the filter scored
      * @param  list<MailRecipient>  $recipients
+     * @param  list<string>  $tags
+     * @param  array<string, string>  $metadata
      */
     public function __construct(
         public string $id,
@@ -30,6 +33,10 @@ readonly class Mail
         public array $recipients = [],
         public ?DateTimeImmutable $sentAt = null,
         public bool $tracksClicks = false,
+        public bool $tracksOpens = false,
+        public array $tags = [],
+        public array $metadata = [],
+        public ?DateTimeImmutable $sendAt = null,
     ) {}
 
     /**
@@ -50,12 +57,32 @@ readonly class Mail
             recipients: array_map(MailRecipient::fromArray(...), Payload::maps($data, 'recipients')),
             sentAt: Payload::nullableDate($data, 'sent_at'),
             tracksClicks: $tracking !== null && Payload::bool($tracking, 'clicks'),
+            tracksOpens: $tracking !== null && ($tracking['opens'] ?? false) === true,
+            tags: isset($data['tags']) ? Payload::strings($data, 'tags') : [],
+            metadata: isset($data['metadata']) && $data['metadata'] !== [] ? Payload::stringMap($data, 'metadata') : [],
+            sendAt: Payload::nullableDate($data, 'send_at'),
         );
     }
 
-    /** Whether Relay took the mail for sending (`queued` or already `sent`). */
+    /** Whether Relay took the mail for sending: `queued`, already `sent`, or `scheduled` for later. */
     public function accepted(): bool
     {
-        return in_array($this->status, ['queued', 'sent'], true);
+        return in_array($this->status, ['queued', 'sent', 'scheduled'], true);
+    }
+
+    /** Whether it waits for `$sendAt` and can still be cancelled. */
+    public function scheduled(): bool
+    {
+        return $this->status === 'scheduled';
+    }
+
+    /**
+     * The same mail as it is after something happened to it. Used by the fake.
+     *
+     * @param  list<MailRecipient>|null  $recipients
+     */
+    public function became(string $status, ?string $reason = null, ?array $recipients = null): self
+    {
+        return new self($this->id, $status, $this->from, $this->subject, $this->createdAt, $reason, $this->verdicts, $recipients ?? $this->recipients, $this->sentAt, $this->tracksClicks, $this->tracksOpens, $this->tags, $this->metadata, $this->sendAt);
     }
 }

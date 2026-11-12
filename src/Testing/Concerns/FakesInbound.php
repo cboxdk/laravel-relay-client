@@ -139,7 +139,8 @@ trait FakesInbound
     public function listInbound(?int $limit = null, ?string $cursor = null, ?string $project = null): Page
     {
         $this->record(new RecordedCall(Operation::ListInbound, $project, limit: $limit, cursor: $cursor));
-        $bucket = $this->bucket($project);
+        // Received mail is read for the whole environment when no project is named.
+        $bucket = $this->acting($project)->id ?? '';
 
         $messages = array_values(array_filter($this->inbound, static fn (InboundMessage $message): bool => $bucket === '' || $message->projectId === $bucket));
 
@@ -156,7 +157,7 @@ trait FakesInbound
     public function findInbound(string $id, ?string $project = null): ?InboundMessage
     {
         $this->record(new RecordedCall(Operation::FindInbound, $project, $id));
-        $bucket = $this->bucket($project);
+        $bucket = $this->acting($project)->id ?? '';
         $message = $this->inbound[$id] ?? null;
 
         return $message === null || ($bucket !== '' && $message->projectId !== $bucket) ? null : $message;

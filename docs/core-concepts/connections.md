@@ -18,13 +18,12 @@ names the others:
     'billing' => [
         'key' => env('RELAY_BILLING_KEY'),
         'project' => env('RELAY_BILLING_PROJECT'),
-        'project_key' => false,
         'webhook' => ['secret' => env('RELAY_BILLING_WEBHOOK_SECRET')],
     ],
 ],
 ```
 
-A connection has its own `key`, `project`, `project_key` and `webhook.secret` /
+A connection has its own `key`, `project` and `webhook.secret` /
 `webhook.previous_secret`. Its `url`, `timeout` and `connect_timeout` fall back to the
 top level when it does not set them.
 

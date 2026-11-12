@@ -33,7 +33,7 @@ beforeEach(function (): void {
         'timeout' => 9,
         'webhook' => ['secret' => 'whsec_billing', 'previous_secret' => 'whsec_old'],
     ]);
-    config()->set('relay.connections.locked', ['key' => 'rlk_test_locked0123456789', 'project_key' => true]);
+    config()->set('relay.connections.locked', ['key' => 'rlk_test_locked0123456789']);
 });
 
 it('reads the top level as the default connection and the others by name', function (): void {
@@ -45,10 +45,10 @@ it('reads the top level as the default connection and the others by name', funct
     expect($config->connectionNames())->toBe(['default', 'billing', 'locked'])
         ->and([$default->name, $default->url, $default->project, $default->environment(), $default->configured()])->toBe(['default', 'https://relay.test', null, 'test', true])
         ->and($config->connection('default')->key)->toBe($default->key)
-        ->and([$billing->url, $billing->project, $billing->projectKey, $billing->timeout, $billing->connectTimeout, $billing->webhookSecrets, $billing->environment()])
-        ->toBe(['https://relay-eu.test', 'billing-ws', false, 9.0, 2.0, ['whsec_billing', 'whsec_old'], 'live'])
+        ->and([$billing->url, $billing->project, $billing->timeout, $billing->connectTimeout, $billing->webhookSecrets, $billing->environment()])
+        ->toBe(['https://relay-eu.test', 'billing-ws', 9.0, 2.0, ['whsec_billing', 'whsec_old'], 'live'])
         // What a connection does not set comes from the top level.
-        ->and([$locked->url, $locked->projectKey, $locked->project, $locked->timeout, $locked->webhookSecrets])->toBe(['https://relay.test', true, null, 5.0, []])
+        ->and([$locked->url, $locked->project, $locked->timeout, $locked->webhookSecrets])->toBe(['https://relay.test', null, 5.0, []])
         ->and(fn () => $config->connection('nope'))->toThrow(RelayNotConfigured::class, "No Relay connection is named 'nope'");
 });
 

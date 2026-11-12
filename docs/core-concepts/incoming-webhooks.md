@@ -89,7 +89,8 @@ Each verified delivery is dispatched as one Laravel event:
 |----------|---------------|-----------------|
 | `mail.received` | `Webhooks\Received\MailReceived` | `Webhooks\Events\MailReceived` |
 | `mail.accepted`, `mail.blocked` | `Received\MailAccepted`, `Received\MailBlocked` | the typed data |
-| `mail.delivered`, `mail.bounced`, `mail.complained`, `mail.clicked` | `Received\MailDelivered`, `Received\MailBounced`, `Received\MailComplained`, `Received\MailClicked` | the typed data |
+| `mail.delivered`, `mail.deferred`, `mail.bounced`, `mail.complained` | `Received\MailDelivered`, `Received\MailDeferred`, `Received\MailBounced`, `Received\MailComplained` | the typed data |
+| `mail.clicked`, `mail.opened` | `Received\MailClicked`, `Received\MailOpened` | the typed data |
 | `push.delivered`, `push.expired` | `Received\PushDelivered`, `Received\PushExpired` | the typed data |
 | `endpoint.disabled`, `project.outbound_paused` | `Received\EndpointDisabled`, `Received\ProjectOutboundPaused` | the typed data |
 | anything else | `Received\OtherEventReceived` | none: read `$event->webhook->type` and `->data` |
@@ -194,13 +195,19 @@ other type (your own events come back in `$webhook->data`). All are in
 | `mail.accepted` | `MailAccepted` | `id`, `projectId`, `from`, `recipients`, `suppressed`, `status`, `reason` |
 | `mail.blocked` | `MailBlocked` | the same |
 | `mail.delivered` | `MailDelivered` | `id`, `projectId`, `recipient`. The recipient's server accepted the mail; it says nothing about inbox or junk |
+| `mail.deferred` | `MailDeferred` | `id`, `projectId`, `recipient`, `status` (the server's code, or null), `diagnostic`. The server did not take the mail now and Relay tries again; at most once an hour per recipient |
 | `mail.bounced` | `MailBounced` | `id`, `projectId`, `recipient`, `permanent`, `status`, `diagnostic` |
 | `mail.complained` | `MailComplained` | `id`, `projectId`, `recipient` |
 | `mail.clicked` | `MailClicked` | `id`, `projectId`, `linkId`, `url`, `clickedAt`. No recipient: every recipient of a mail gets the same link |
+| `mail.opened` | `MailOpened` | `id`, `projectId`, `openedAt`. No recipient, and a weak signal: a mail client or its proxy fetched the image. At most once an hour per mail |
 | `push.delivered` | `PushDelivered` | `id`, `projectId`, `subscriptionId`, `externalRef`, `attempts` |
 | `push.expired` | `PushExpired` | the same |
 | `endpoint.disabled` | `EndpointDisabled` | `endpointId`, `projectId`, `reason` |
 | `project.outbound_paused` | `ProjectOutboundPaused` | `projectId`, `reason`, `sent`, `bounced`, `complained` |
+
+Every event about a sent mail (all of `mail.*` except `mail.received`) also carries
+`tags` and `metadata`: what the mail was sent with, empty when it had none. So a listener
+finds your own record from `$event->metadata['invoice_id']` without keeping mail ids.
 
 `mail.received` carries no content: fetch it with `Relay::inbound()->find($event->id)`.
 

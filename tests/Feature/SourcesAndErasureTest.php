@@ -13,7 +13,6 @@ use Cbox\Relay\Client\Data\SourceScheme;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
-use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Jobs\PublishEvent;
 use Illuminate\Http\Client\Request;
@@ -119,31 +118,12 @@ describe('over HTTP', function (): void {
             ->and($unknown->succeeded())->toBeFalse();
     });
 
-    it('maps Relay\'s project_required to RelayProjectRequired and keeps invalid_request as RelayInvalid', function (): void {
-        Http::fake([
-            'relay.test/v1/endpoints' => Http::response(['type' => 'https://cboxrelay.com/problems/project_required', 'title' => 'Unprocessable content', 'status' => 422, 'detail' => 'This call acts for one project. Send the Relay-Project header.', 'errors' => ['Relay-Project' => ['The Relay-Project header is required.']]], 422),
-            'relay.test/v1/domains' => Http::response(['type' => 'https://cboxrelay.com/problems/invalid_request', 'title' => 'Unprocessable content', 'status' => 422, 'errors' => ['Relay-Project' => ['The Relay-Project header is required.']]], 422),
-        ]);
+    it('sends no Relay-Project header when no project is named', function (): void {
+        Http::fake(['relay.test/v1/endpoints' => Http::response(['data' => []])]);
 
-        try {
-            app(RelayTransport::class)->listEndpoints();
-            $this->fail('Nothing was thrown.');
-        } catch (RelayProjectRequired $e) {
-            expect($e->status())->toBe(422)
-                ->and($e->problem?->type)->toEndWith('project_required')
-                ->and($e->getMessage())->toContain('Send the Relay-Project header');
-        }
+        expect(app(RelayTransport::class)->listEndpoints())->toBe([]);
 
-        expect(fn () => app(RelayTransport::class)->listDomains())->toThrow(RelayInvalid::class);
-    });
-
-    it('fails the publish job for good on project_required', function (): void {
-        Http::fake(['relay.test/v1/events' => Http::response(['type' => 'https://cboxrelay.com/problems/project_required', 'title' => 'Unprocessable content', 'status' => 422], 422)]);
-
-        $job = PublishEvent::for(new NewEvent('order.paid', [], 'k1'))->withFakeQueueInteractions();
-        $job->handle(app(RelayTransport::class));
-
-        $job->assertFailedWith(RelayProjectRequired::class);
+        Http::assertSent(fn (Request $request): bool => ! $request->hasHeader('Relay-Project'));
     });
 });
 
@@ -304,8 +284,9 @@ describe('on the fake', function (): void {
         expect($this->scoped->endpoints()->ping($endpoint->id)->outcome())->toBe(AttemptOutcome::Timeout);
     });
 
-    it('needs a project for sources and erasures', function (): void {
-        expect(fn () => Relay::sources()->list())->toThrow(RelayProjectRequired::class)
-            ->and(fn () => Relay::eraseSubject('contact_42'))->toThrow(RelayProjectRequired::class);
+    it('uses the default project for sources and erasures when none is named', function (): void {
+        expect(Relay::sources()->list())->toBe([])
+            ->and(Relay::eraseSubject('contact_42')->removed)->toBe(0)
+            ->and(Relay::projects()->find('default'))->not->toBeNull();
     });
 });

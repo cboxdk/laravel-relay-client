@@ -7,8 +7,10 @@ products; this package is how a Laravel app talks to its API.
   retries it, with an idempotency key so a retry publishes once.
 - **Webhook endpoints.** Declare event types; register, pause, rotate, ping and replay
   endpoints; read events and what became of each delivery.
-- **Mail.** Sending domains, click tracking per domain or per mail, the suppression
-  list, `Relay::sendMail()`, and a `relay` mail transport so `MAIL_MAILER=relay` works.
+- **Mail.** Sending domains, the suppression list, `Relay::sendMail()` and a `relay`
+  mail transport so `MAIL_MAILER=relay` works. Tags and metadata that come back in every
+  event, inline images, a send time with cancel, up to 100 mails in one call, a list with
+  filters, and click and open tracking per domain or per mail.
 - **Web Push.** The project's key, browser subscriptions, `Relay::push()`, and a Laravel
   notification channel.
 - **Inbound mail.** Claim one address, a whole domain, or an address of Relay's that
@@ -87,9 +89,9 @@ $relay->judge(html: $html, subject: 'Welcome')->score('phishing');
 $relay->inbound()->list();
 ```
 
-Most calls act for one project. Without one (`forProject()` or `RELAY_PROJECT`) they throw
-`RelayProjectRequired` before anything is sent; with a project key, set
-`RELAY_PROJECT_KEY=true`.
+Most calls act for one project. Name it with `forProject()` or `RELAY_PROJECT`, or name
+none: a project key then acts for its own project, and an organization key for the project
+`default`, which Relay makes on first use.
 
 Relay's errors are typed: `RelayUnauthorized`, `RelayForbidden`, `RelayNotFound`,
 `RelayConflict` (`->type()` names Relay's reason, e.g. `mail_not_held`), `RelayTooLarge`, `RelayInvalid` (`->errors`), `RelayRateLimited`

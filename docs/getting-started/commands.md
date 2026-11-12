@@ -20,9 +20,9 @@ For every [connection](../core-concepts/connections.md):
 - **Key and URL** are set, and the key's prefix says `live` or `test`.
 - **Webhook secret** is set (a warning when it is not).
 - **Relay answers** `whoami`, and its environment is the one the key's prefix names.
-- **Project**: the default project exists in Relay; or the key is a project key and
-  `project_key` says so; or neither is set, which is a warning, because every call then
-  has to name one.
+- **Project**: a default project that is set exists in Relay; a project key is not told
+  to act for another project than its own (a failure: Relay refuses that). No project
+  set is fine: Relay then uses the key's own or the project `default`.
 
 Then once:
 

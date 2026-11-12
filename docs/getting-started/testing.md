@@ -54,8 +54,8 @@ $relay->seedProject('ws_1');     // one project
 $relay->acceptAnyProject();      // or: any project a call names is stored on first use
 ```
 
-A call that needs a project and has none still throws `RelayProjectRequired`: that check is
-in the manager, in front of the fake.
+A call that names no project acts for the project `default`, which the fake makes on first
+use, as Relay does.
 
 ## Publishing
 
@@ -114,19 +114,34 @@ $relay->assertMailReleased($mail->id);
 $relay->assertMailDiscarded($mail->id);
 ```
 
-This covers `Relay::sendMail()` and everything sent through the `relay` mail transport,
+A scheduled mail: send with a `sendAt` in the future, then `Relay::cancelMail($id)` and
+
+```php
+$relay->assertMailCancelled($mail->id);
+```
+
+Tags, metadata and what else a mail carried are on the recorded `OutgoingMail`:
+
+```php
+$relay->assertMailSent(fn (OutgoingMail $mail): bool => $mail->tags === ['invoice'] && $mail->metadata['invoice_id'] === 'inv_1');
+```
+
+This covers `Relay::sendMail()`, each mail of `Relay::sendMailBatch()` that was stored, and
+everything sent through the `relay` mail transport,
 so a mailable is asserted the same way. `sentMail(): list<OutgoingMail>` gives the mails.
 
-Click tracking: `assertDomainTracksClicks(string $id, bool $clicks = true)` for a domain,
+Tracking: `assertDomainTracksClicks(string $id, bool $clicks = true)` and
+`assertDomainTracksOpens(string $id, bool $opens = true)` for a domain,
 and for one mail read what was handed over and what came back:
 
 ```php
 $relay->assertMailSent(fn (OutgoingMail $mail): bool => $mail->trackClicks === false);   // what the mail itself said; null when it left it to the domain
 Relay::forProject('ws_1')->mail($id)?->tracksClicks;                                     // the answer: the mail's own, else its domain's
+Relay::forProject('ws_1')->mail($id)?->tracksOpens;                                      // the same for opens
 ```
 
 Helpers: `seedDomain(string $project, string $domain, string $status = 'verified')`,
-`seedTracking(string $domainId, bool $clicks = true, ?string $host = null)`,
+`seedTracking(string $domainId, bool $clicks = true, ?string $host = null, bool $opens = false)`,
 `seedSuppression(string $project, string $address, SuppressionReason $reason = Manual, ?string $source = null)`,
 `markMail(string $id, string $status, ?string $reason = null)`,
 `markRecipient(string $mailId, string $address, string $status, ?string $detail = null)`
@@ -261,8 +276,9 @@ promises about the service.
 - A list read without `limit` returns up to 50 items (`FakeRelay::DEFAULT_LIMIT`).
 - A project put without a name is named after its external ref.
 - A `Relay-Project` that names no stored project answers 404, unless `acceptAnyProject()`.
-- A scoped call *without* a project is taken as a project key's call and gets a place of
-  its own; the fake does not answer Relay's 422 `project_required` for it.
+- A scoped call *without* a project acts for the project `default`
+  (`FakeRelay::DEFAULT_PROJECT`), stored on first use, the way Relay treats an organization
+  key. The fake does not play a project key.
 - Acting for a project narrows the delivery log and received mail to that project and fills
   `whoami`'s `project`; it does not change what the project endpoints return.
 - The delivery log is newest first, `from` and `to` include their bounds, and nothing
@@ -304,9 +320,17 @@ promises about the service.
 - One address is active at once at a domain the project has a verified sending domain
   for, and pending with a record to publish at any other. A forwarding address is active
   at once, at `inbound.cboxrelay.com`, with a name made from the address it stands in for.
-- A mail tracks clicks when it says so, else when the sending domain of its From address
-  does. The fake rewrites no links and never produces a click: build a `mail.clicked`
-  delivery yourself to test a listener. A domain's own tracking host gets a CNAME record
+- A mail tracks clicks, and opens, when it says so, else when the sending domain of its
+  From address does; never without an HTML part. The fake rewrites no links, adds no image
+  and never produces a click or an open: build a `mail.clicked` or `mail.opened` delivery
+  yourself to test a listener.
+- A mail with a `sendAt` in the future is `scheduled` and stays so: the fake has no clock
+  that sends it. `cancelMail()` makes it `cancelled`; anything else answers 409
+  `mail_not_scheduled`. A `sendAt` that has passed is sent at once.
+- A batch accepts each mail on its own, with the checks of a single send, and holds 1 to
+  100 mails. The fake has no rate limit, so no mail of a batch gets `429`.
+- `mails()` lists newest first with `MailFilter`; tags and metadata are kept as sent and
+  their shape is not checked. A domain's own tracking host gets a CNAME record
   to `links.cboxrelay.com`; nothing checks it.
 - The same content judged twice for the same project gives the same judgment, with
   `created` false the second time.

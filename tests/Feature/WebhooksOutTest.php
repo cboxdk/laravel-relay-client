@@ -10,7 +10,6 @@ use Cbox\Relay\Client\Data\PingResult;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayInvalid;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
-use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Exceptions\RelayUnavailable;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Jobs\PublishEvent;
@@ -196,35 +195,16 @@ it('keeps each project\'s webhooks apart', function (): void {
         ->and(Relay::forProject('ws_2')->events()->list())->toHaveCount(0);
 });
 
-it('throws before anything is sent when a scoped call has no project', function (Closure $call): void {
-    expect($call)->toThrow(RelayProjectRequired::class);
-
-    $this->relay->assertNothingSent();
-})->with([
-    'publish' => [fn () => Relay::publish('order.paid')],
-    'publishNow' => [fn () => Relay::publishNow('order.paid')],
-    'publishBatch' => [fn () => Relay::publishBatch([new NewEvent('order.paid')])],
-    'event types' => [fn () => Relay::eventTypes()->all()],
-    'endpoints' => [fn () => Relay::endpoints()->list()],
-    'events' => [fn () => Relay::events()->list()],
-    'judge' => [fn () => Relay::judge(text: 'Hi')],
-    'push key' => [fn () => Relay::pushKey()],
-    'push' => [fn () => Relay::push('psb_1', 'Hi')],
-    'subscriptions' => [fn () => Relay::pushSubscriptions()->list()],
-    'inbound routes' => [fn () => Relay::inboundRoutes()->list()],
-    'domains' => [fn () => Relay::domains()->list()],
-    'suppressions' => [fn () => Relay::suppressions()->list()],
-    'mail' => [fn () => Relay::mail('msg_1')],
-    'after withoutProject' => [fn () => Relay::forProject('ws_1')->withoutProject()->endpoints()->list()],
-]);
-
-it('lets scoped calls through without a project when the key is a project key', function (): void {
-    config()->set('relay.project_key', true);
-
+it('sends a scoped call without a project when none is named, for Relay to use the key\'s or the default one', function (): void {
     Relay::publish('order.paid');
     Relay::endpoints()->list();
+    Relay::forProject('ws_1')->withoutProject()->domains()->list();
 
     $this->relay->assertPublished('order.paid', fn (NewEvent $event, ?string $project): bool => $project === null);
+
+    // On the fake, as on Relay: the project `default`, made on first use.
+    expect(Relay::projects()->find('default')?->name)->toBe('Default')
+        ->and(Relay::forProject('default')->events()->list()->items)->toHaveCount(1);
 });
 
 it('uses the configured default project for scoped calls', function (): void {

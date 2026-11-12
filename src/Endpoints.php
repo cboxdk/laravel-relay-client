@@ -30,7 +30,7 @@ class Endpoints
      */
     public function register(string $url, array $eventTypes, ?string $description = null, ?Envelope $envelope = null, ?SignatureScheme $signatureScheme = null, ?string $idempotencyKey = null): Endpoint
     {
-        return $this->transport->createEndpoint(new NewEndpoint($url, $eventTypes, $description, $envelope, $signatureScheme), $idempotencyKey, $this->project->required());
+        return $this->transport->createEndpoint(new NewEndpoint($url, $eventTypes, $description, $envelope, $signatureScheme), $idempotencyKey, $this->project->ref);
     }
 
     /**
@@ -38,13 +38,13 @@ class Endpoints
      */
     public function list(): array
     {
-        return $this->transport->listEndpoints($this->project->required());
+        return $this->transport->listEndpoints($this->project->ref);
     }
 
     /** The endpoint, or null when there is none with that id in the project. */
     public function find(string $id): ?Endpoint
     {
-        return $this->transport->findEndpoint($id, $this->project->required());
+        return $this->transport->findEndpoint($id, $this->project->ref);
     }
 
     /**
@@ -55,23 +55,23 @@ class Endpoints
      */
     public function update(string $id, ?string $url = null, ?array $eventTypes = null, ?string $description = null, bool $clearDescription = false, ?Envelope $envelope = null): Endpoint
     {
-        return $this->transport->updateEndpoint($id, new EndpointChanges($url, $eventTypes, $description, $clearDescription, $envelope), $this->project->required());
+        return $this->transport->updateEndpoint($id, new EndpointChanges($url, $eventTypes, $description, $clearDescription, $envelope), $this->project->ref);
     }
 
     public function delete(string $id): void
     {
-        $this->transport->deleteEndpoint($id, $this->project->required());
+        $this->transport->deleteEndpoint($id, $this->project->ref);
     }
 
     /** Stop sending. Events are kept and can be replayed. */
     public function pause(string $id): Endpoint
     {
-        return $this->transport->pauseEndpoint($id, $this->project->required());
+        return $this->transport->pauseEndpoint($id, $this->project->ref);
     }
 
     public function resume(string $id): Endpoint
     {
-        return $this->transport->resumeEndpoint($id, $this->project->required());
+        return $this->transport->resumeEndpoint($id, $this->project->ref);
     }
 
     /**
@@ -80,13 +80,13 @@ class Endpoints
      */
     public function rotateSecret(string $id): Endpoint
     {
-        return $this->transport->rotateEndpointSecret($id, $this->project->required());
+        return $this->transport->rotateEndpointSecret($id, $this->project->ref);
     }
 
     /** Send a test event now and see how the receiver answered. */
     public function ping(string $id): PingResult
     {
-        return $this->transport->pingEndpoint($id, $this->project->required());
+        return $this->transport->pingEndpoint($id, $this->project->ref);
     }
 
     /**
@@ -97,6 +97,6 @@ class Endpoints
      */
     public function replay(string $id, DateTimeInterface $since, ?DateTimeInterface $until = null, array $types = []): int
     {
-        return $this->transport->replayEndpoint($id, $since, $until, $types, $this->project->required());
+        return $this->transport->replayEndpoint($id, $since, $until, $types, $this->project->ref);
     }
 }

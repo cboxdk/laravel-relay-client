@@ -21,6 +21,8 @@ use Cbox\Relay\Client\Data\InboundRouteType;
 use Cbox\Relay\Client\Data\JudgeInput;
 use Cbox\Relay\Client\Data\Judgment;
 use Cbox\Relay\Client\Data\Mail;
+use Cbox\Relay\Client\Data\MailBatchResult;
+use Cbox\Relay\Client\Data\MailFilter;
 use Cbox\Relay\Client\Data\NewEndpoint;
 use Cbox\Relay\Client\Data\NewEvent;
 use Cbox\Relay\Client\Data\OutgoingMail;
@@ -310,6 +312,22 @@ interface RelayTransport
     /** `POST /v1/mail`: 202 when the mail is stored; `Mail::$status` says what happens next. */
     public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null, ?string $project = null): Mail;
 
+    /**
+     * `GET /v1/mail`: the project's mail, newest first.
+     *
+     * @return Page<Mail>
+     */
+    public function listMail(MailFilter $filter = new MailFilter, ?int $limit = null, ?string $cursor = null, ?string $project = null): Page;
+
+    /**
+     * `POST /v1/mail/batch`: up to 100 mails, each judged and stored on its own. One
+     * result per mail, in the order given. An `Idempotency-Key` covers the whole call.
+     *
+     * @param  list<OutgoingMail>  $mails
+     * @return list<MailBatchResult>
+     */
+    public function sendMailBatch(array $mails, ?string $idempotencyKey = null, ?string $project = null): array;
+
     /** `GET /v1/mail/{id}`; null when Relay answers 404. */
     public function findMail(string $id, ?string $project = null): ?Mail;
 
@@ -318,4 +336,7 @@ interface RelayTransport
 
     /** `POST /v1/mail/{id}/discard`: never send a mail the filter held and remove its content. 409 `mail_not_held` when it is not quarantined. */
     public function discardMail(string $id, ?string $project = null): Mail;
+
+    /** `POST /v1/mail/{id}/cancel`: take back a scheduled mail and remove its content. 409 `mail_not_scheduled` when it no longer waits. */
+    public function cancelMail(string $id, ?string $project = null): Mail;
 }

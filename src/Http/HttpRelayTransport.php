@@ -22,6 +22,8 @@ use Cbox\Relay\Client\Data\InboundRouteType;
 use Cbox\Relay\Client\Data\JudgeInput;
 use Cbox\Relay\Client\Data\Judgment;
 use Cbox\Relay\Client\Data\Mail;
+use Cbox\Relay\Client\Data\MailBatchResult;
+use Cbox\Relay\Client\Data\MailFilter;
 use Cbox\Relay\Client\Data\NewEndpoint;
 use Cbox\Relay\Client\Data\NewEvent;
 use Cbox\Relay\Client\Data\OutgoingMail;
@@ -419,6 +421,20 @@ class HttpRelayTransport implements RelayTransport
         return Mail::fromArray($this->body($this->send('POST', '/v1/mail', body: $mail->toArray(), project: $project, idempotencyKey: $idempotencyKey)));
     }
 
+    public function listMail(MailFilter $filter = new MailFilter, ?int $limit = null, ?string $cursor = null, ?string $project = null): Page
+    {
+        $response = $this->send('GET', '/v1/mail', [...$filter->toQuery(), ...$this->paging($limit, $cursor)], project: $project);
+
+        return Page::fromArray($this->body($response), static fn (array $item): Mail => Mail::fromArray($item));
+    }
+
+    public function sendMailBatch(array $mails, ?string $idempotencyKey = null, ?string $project = null): array
+    {
+        $body = ['mails' => array_map(static fn (OutgoingMail $mail): array => $mail->toArray(), $mails)];
+
+        return $this->items($this->send('POST', '/v1/mail/batch', body: $body, project: $project, idempotencyKey: $idempotencyKey), MailBatchResult::fromArray(...));
+    }
+
     public function findMail(string $id, ?string $project = null): ?Mail
     {
         $body = $this->find('/v1/mail/'.rawurlencode($id), $project);
@@ -434,6 +450,11 @@ class HttpRelayTransport implements RelayTransport
     public function discardMail(string $id, ?string $project = null): Mail
     {
         return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/discard', project: $project)));
+    }
+
+    public function cancelMail(string $id, ?string $project = null): Mail
+    {
+        return Mail::fromArray($this->body($this->send('POST', '/v1/mail/'.rawurlencode($id).'/cancel', project: $project)));
     }
 
     private function endpointAction(string $id, string $action, ?string $project): Endpoint

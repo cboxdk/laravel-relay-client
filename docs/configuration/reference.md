@@ -26,10 +26,9 @@ A timeout that is not a positive number falls back to its default.
 
 | Key | Env | Default | What it is |
 |-----|-----|---------|------------|
-| `relay.project` | `RELAY_PROJECT` | none | The project every call acts for unless `forProject()` says otherwise. |
-| `relay.project_key` | `RELAY_PROJECT_KEY` | `false` | `true` when the key is a project key: scoped calls go out without `Relay-Project` and `RelayProjectRequired` is never thrown. |
+| `relay.project` | `RELAY_PROJECT` | none | The project every call acts for unless `forProject()` says otherwise. Empty: no `Relay-Project` header is sent, and Relay acts for the key's own project or, for an organization key, for the project `default`. |
 
-See [Authentication](../core-concepts/authentication.md#calls-that-need-a-project).
+See [Authentication](../core-concepts/authentication.md#when-no-project-is-named).
 
 ## Publishing
 
@@ -69,7 +68,7 @@ See [Local delivery status](../core-concepts/delivery-status.md).
 
 ## More connections
 
-`relay.connections` is a map of name to `key`, `project`, `project_key`, `url`,
+`relay.connections` is a map of name to `key`, `project`, `url`,
 `timeout`, `connect_timeout` and `webhook.secret` / `webhook.previous_secret`. Everything
 above is the connection named `default`. See [Connections](../core-concepts/connections.md).
 

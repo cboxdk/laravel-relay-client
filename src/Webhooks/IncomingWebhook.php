@@ -13,7 +13,9 @@ use Cbox\Relay\Client\Webhooks\Events\MailBlocked;
 use Cbox\Relay\Client\Webhooks\Events\MailBounced;
 use Cbox\Relay\Client\Webhooks\Events\MailClicked;
 use Cbox\Relay\Client\Webhooks\Events\MailComplained;
+use Cbox\Relay\Client\Webhooks\Events\MailDeferred;
 use Cbox\Relay\Client\Webhooks\Events\MailDelivered;
+use Cbox\Relay\Client\Webhooks\Events\MailOpened;
 use Cbox\Relay\Client\Webhooks\Events\MailReceived;
 use Cbox\Relay\Client\Webhooks\Events\ProjectOutboundPaused;
 use Cbox\Relay\Client\Webhooks\Events\PushDelivered;
@@ -44,9 +46,11 @@ readonly class IncomingWebhook
         'mail.accepted' => MailAccepted::class,
         'mail.blocked' => MailBlocked::class,
         'mail.delivered' => MailDelivered::class,
+        'mail.deferred' => MailDeferred::class,
         'mail.bounced' => MailBounced::class,
         'mail.complained' => MailComplained::class,
         'mail.clicked' => MailClicked::class,
+        'mail.opened' => MailOpened::class,
         'push.delivered' => PushDelivered::class,
         'push.expired' => PushExpired::class,
         'endpoint.disabled' => EndpointDisabled::class,

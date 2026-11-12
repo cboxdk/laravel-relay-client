@@ -46,7 +46,7 @@ Needs `domains:manage`.
 
 Off until you turn it on. With it on, the `http` and `https` links in the HTML of a
 mail go through Relay, which records the click and sends the reader on to the address
-you wrote. Opens are not tracked.
+you wrote. Opens are a setting of their own: see [Open tracking](#open-tracking).
 
 ```php
 use Cbox\Relay\Client\Data\TrackingChanges;
@@ -124,18 +124,25 @@ $mail = Relay::forProject($ref)->sendMail(new OutgoingMail(
     replyTo: 'support@acme.dk',
     headers: ['X-Order' => 'o_1'],
     attachments: [new MailAttachment('receipt.pdf', 'application/pdf', $pdfBytes)],
+    tags: ['invoice'],
+    metadata: ['invoice_id' => $invoice->id],
 ), idempotencyKey: "order-mail:{$order->id}");
 
 $mail->id;           // 'msg_…'
-$mail->status;       // 'queued', 'blocked' or 'quarantined' right after sending
-$mail->accepted();   // queued or sent
+$mail->status;       // 'queued', 'scheduled', 'blocked' or 'quarantined' right after sending
+$mail->accepted();   // queued, scheduled or sent
 $mail->reason;       // why it was held, blocked or failed
 
-Relay::forProject($ref)->mail($mail->id);   // ?Mail, with ->recipients and ->sentAt
+Relay::forProject($ref)->mail($mail->id);   // ?Mail, with ->recipients, ->tags, ->metadata and ->sentAt
 ```
+
+`forProject()` is optional: without it (and without `relay.project`) the mail is sent for
+the key's own project, or the project `default` for an organization key.
 
 | Status | Meaning |
 |--------|---------|
+| `scheduled` | It waits for its `sendAt`, and can be cancelled until then |
+| `cancelled` | A scheduled mail that was taken back. Never sent, its content removed |
 | `queued` | It will be signed and handed to the mail server |
 | `sent` | Handed to the mail server. Not the same as delivered to an inbox |
 | `blocked` | Every recipient is on the suppression list |
@@ -145,6 +152,84 @@ Relay::forProject($ref)->mail($mail->id);   // ?Mail, with ->recipients and ->se
 Relay refuses (422, `RelayInvalid`) a sender whose domain is not a verified sending
 domain of the project, a project that was paused for bounces or complaints, more than 50
 recipients, 20 attachments or 10 MB, and a header it does not let a sender set.
+
+### Tags and metadata
+
+Your own labels on a mail. Relay returns them with the mail and puts them in every event
+about it, so a webhook can find your record without a lookup table of mail ids.
+
+```php
+new OutgoingMail(…, tags: ['invoice', 'billing'], metadata: ['invoice_id' => 'inv_4821']);
+$mail->tagged(['invoice'])->withMetadata(['invoice_id' => 'inv_4821']);   // on a mail you already have
+```
+
+Up to 10 tags of letters, digits, `_` and `-` (50 characters each). Up to 20 metadata
+keys (letters, digits, `.`, `_`, `-`, 40 characters) with string values of at most 500
+characters. `tag` filters the list below.
+
+### Inline images
+
+An attachment with a content id is drawn inside the HTML where it says `cid:` and that
+id, instead of being listed as a file:
+
+```php
+new OutgoingMail(…,
+    html: '<img src="cid:logo">',
+    attachments: [new MailAttachment('logo.png', 'image/png', $bytes, contentId: 'logo')],
+);
+```
+
+The id is 1 to 100 letters, digits, `.`, `_` or `-`, and unique in the mail.
+
+### Send later
+
+```php
+$mail = Relay::sendMail($outgoing->sendingAt(now()->addDay()));   // or sendAt: in the constructor
+
+$mail->status;        // 'scheduled'
+$mail->scheduled();   // true
+$mail->sendAt;        // when it leaves
+
+Relay::cancelMail($mail->id);   // 'cancelled': never sent, its content is removed
+```
+
+At most 30 days ahead; a moment that has passed means now. The mail leaves within a
+minute after its time. The sender and the filter are checked when it is accepted; the
+suppression list is read again when it leaves. `cancelMail()` throws `RelayConflict` with
+the type `mail_not_scheduled` when the mail no longer waits. To change the time, cancel
+and send again.
+
+### Many mails in one call
+
+```php
+$results = Relay::sendMailBatch([$first, $second, $third], idempotencyKey: "digest:{$day}");
+
+foreach ($results as $index => $result) {
+    $result->status;     // 202, or the status of the problem
+    $result->stored();   // whether Relay took this one
+    $result->mail;       // ?Mail
+    $result->problem;    // ?Problem: what a single send would have thrown for
+}
+```
+
+Up to 100 mails. Each is judged and stored on its own, in order: one that is refused does
+not stop the others, and the call does not throw for it. Each mail spends one unit of the
+key's rate limit; when it runs out part of the way, the rest come back with `429` and are
+not stored, so send those again later. The idempotency key covers the whole call.
+
+### List
+
+```php
+use Cbox\Relay\Client\Data\MailFilter;
+
+$page = Relay::mails(new MailFilter(status: 'sent', tag: 'invoice', to: 'ann@example.com'), limit: 50);
+
+foreach ($page as $mail) { … }
+$page->nextCursor;   // pass back as cursor: for the next page; null on the last
+```
+
+Newest first. `MailFilter` also takes `from`, `createdAfter` and `createdBefore`; every
+part narrows and none is required.
 
 ### A held mail
 
@@ -210,26 +295,42 @@ like this:
 | Subject, HTML body, text body | `subject`, `html`, `text` |
 | headers Relay allows (above) | `headers`, each value on one line |
 | attachments | `attachments`, base64 |
+| an embedded image (`$message->embed()`, `embedData()`) | an inline attachment with a `content_id`; the `cid:` in the HTML follows it |
+| `->tag('invoice')` on a mailable | one of `tags` |
+| `->metadata('invoice_id', $id)` on a mailable | `metadata` |
 
 What the API has no place for is dropped, not sent: display names of recipients, a
-second Reply-To, every header outside the allowed set (`Sender`, `Return-Path`, custom
-ones without `X-`), and the inline placement of an embedded image, which goes as an
-ordinary attachment.
+second Reply-To, and every header outside the allowed set (`Sender`, `Return-Path`,
+custom ones without `X-`).
 
-Three headers steer one send and are never passed on:
+Five headers steer one send and are never passed on:
 
 ```php
 $message->getHeaders()->addTextHeader('X-Relay-Project', $workspace->id);              // send for this project
 $message->getHeaders()->addTextHeader('X-Relay-Idempotency-Key', "invoice:{$id}");   // the Idempotency-Key
 $message->getHeaders()->addTextHeader('X-Relay-Track-Clicks', 'false');              // click tracking for this mail alone
+$message->getHeaders()->addTextHeader('X-Relay-Track-Opens', 'false');               // open tracking for this mail alone
+$message->getHeaders()->addTextHeader('X-Relay-Send-At', now()->addDay()->toIso8601String());   // hold it back until then
 ```
 
-`X-Relay-Track-Clicks` takes `true` or `false` (also `1`/`0`, `yes`/`no`, `on`/`off`).
-Anything else throws a `TransportException` and nothing is sent. Without the header the
-sending domain's setting decides.
+The two tracking headers take `true` or `false` (also `1`/`0`, `yes`/`no`, `on`/`off`);
+`X-Relay-Send-At` takes a date and time. Anything else throws a `TransportException` and
+nothing is sent. Without a tracking header the sending domain's setting decides.
 
-The project is, in order: the `X-Relay-Project` header, the mailer's `project`, `relay.project`.
-With none (and no `relay.project_key`) the send throws `RelayProjectRequired`.
+A mailable's tags and metadata need nothing of ours:
+
+```php
+public function envelope(): Envelope
+{
+    return new Envelope(subject: 'Your invoice', tags: ['invoice'], metadata: ['invoice_id' => $this->invoice->id]);
+}
+```
+
+The project is, in order: the `X-Relay-Project` header, the mailer's `project`,
+`relay.project`. With none the mail is sent for the key's own project, or the project
+`default` for an organization key.
+
+The transport sends one mail per call; a batch is `Relay::sendMailBatch()`.
 
 After the send the message carries `X-Relay-Mail-Id` and `X-Relay-Mail-Status`; read
 them in a `MessageSent` listener to keep the id. A mail Relay stored but did not queue

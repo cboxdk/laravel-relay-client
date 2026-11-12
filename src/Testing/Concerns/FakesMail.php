@@ -8,6 +8,8 @@ use Cbox\Relay\Client\Data\DnsRecord;
 use Cbox\Relay\Client\Data\DomainReputation;
 use Cbox\Relay\Client\Data\DomainTracking;
 use Cbox\Relay\Client\Data\Mail;
+use Cbox\Relay\Client\Data\MailBatchResult;
+use Cbox\Relay\Client\Data\MailFilter;
 use Cbox\Relay\Client\Data\MailRecipient;
 use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Data\Page;
@@ -17,8 +19,11 @@ use Cbox\Relay\Client\Data\Suppression;
 use Cbox\Relay\Client\Data\SuppressionReason;
 use Cbox\Relay\Client\Data\TrackingChanges;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
+use Cbox\Relay\Client\Exceptions\RelayException;
+use Cbox\Relay\Client\Testing\MailBatch;
 use Cbox\Relay\Client\Testing\Operation;
 use Cbox\Relay\Client\Testing\RecordedCall;
+use DateTimeImmutable;
 use InvalidArgumentException;
 use PHPUnit\Framework\Assert;
 
@@ -45,6 +50,9 @@ trait FakesMail
 
     /** @var list<string> ids of held mail that was discarded */
     private array $discardedMail = [];
+
+    /** @var list<string> ids of scheduled mail that was cancelled */
+    private array $cancelledMail = [];
 
     public function listDomains(?string $project = null): array
     {
@@ -109,7 +117,7 @@ trait FakesMail
 
         return $this->domains[$bucket][$id] = new SendingDomain(
             $domain->id, $domain->domain, $domain->status, $domain->createdAt, $records, $domain->verifiedAt, $domain->checkedAt,
-            new DomainTracking($tracking->clicks ?? $domain->tracking->clicks, $host),
+            new DomainTracking($tracking->clicks ?? $domain->tracking->clicks, $host, $tracking->opens ?? $domain->tracking->opens),
         );
     }
 
@@ -230,6 +238,54 @@ trait FakesMail
             return $replayed;
         }
 
+        return $this->remember($idempotencyKey, $fingerprint, $this->acceptMail($bucket, $mail, $project));
+    }
+
+    public function sendMailBatch(array $mails, ?string $idempotencyKey = null, ?string $project = null): array
+    {
+        $this->record(new RecordedCall(Operation::SendMailBatch, $project, idempotencyKey: $idempotencyKey));
+        $bucket = $this->bucket($project);
+
+        if ($mails === [] || count($mails) > 100) {
+            throw $this->invalid('mails', 'A batch holds 1 to 100 mails.');
+        }
+
+        $fingerprint = $this->fingerprint(Operation::SendMailBatch, $bucket, $mails);
+        $replayed = $this->replayed($idempotencyKey, $fingerprint);
+
+        if ($replayed instanceof MailBatch) {
+            return $replayed->results;
+        }
+
+        // Each on its own, in order: one that is refused does not stop the others.
+        $results = [];
+
+        foreach ($mails as $mail) {
+            try {
+                $results[] = new MailBatchResult(202, $this->acceptMail($bucket, $mail, $project));
+            } catch (RelayException $e) {
+                $results[] = new MailBatchResult($e->status() ?? 422, problem: $e->problem);
+            }
+        }
+
+        $this->remember($idempotencyKey, $fingerprint, new MailBatch($results));
+
+        return $results;
+    }
+
+    public function listMail(MailFilter $filter = new MailFilter, ?int $limit = null, ?string $cursor = null, ?string $project = null): Page
+    {
+        $this->record(new RecordedCall(Operation::ListMail, $project, limit: $limit, cursor: $cursor, subject: $filter));
+
+        // Newest first: the fake hands out ids in order, and one moment may hold several mails.
+        $matching = array_reverse(array_values(array_filter($this->mails[$this->bucket($project)] ?? [], $filter->matches(...))));
+
+        return $this->page($matching, $limit, $cursor);
+    }
+
+    /** Store one mail as the real service would, or throw what it would refuse it for. */
+    private function acceptMail(string $bucket, OutgoingMail $mail, ?string $project): Mail
+    {
         $this->guardMail($bucket, $mail);
 
         $recipients = [];
@@ -242,24 +298,35 @@ trait FakesMail
         }
 
         $blocked = array_all($recipients, static fn (MailRecipient $recipient): bool => $recipient->status === 'suppressed');
+        // A moment that has passed means now.
+        $sendAt = $mail->sendAt === null ? null : DateTimeImmutable::createFromInterface($mail->sendAt);
+        $later = $sendAt !== null && $sendAt > $this->now();
 
         $stored = new Mail(
             id: 'msg_fake_'.$this->nextNumber(),
-            status: $blocked ? 'blocked' : 'queued',
+            status: match (true) {
+                $blocked => 'blocked',
+                $later => 'scheduled',
+                default => 'queued',
+            },
             from: $mail->from->address,
             subject: $mail->subject,
             createdAt: $this->now(),
             reason: $blocked ? 'Every recipient is on the suppression list.' : null,
             verdicts: array_fill_keys(self::VERDICTS, 0.0),
             recipients: $recipients,
-            // The mail's own answer wins; left out, the sending domain's setting decides.
-            tracksClicks: $mail->trackClicks ?? $this->domainTracksClicks($bucket, $mail->from->address),
+            // The mail's own answer wins; left out, the sending domain's setting decides. No HTML, nothing to track.
+            tracksClicks: $mail->html !== null && ($mail->trackClicks ?? $this->domainTracking($bucket, $mail->from->address)->clicks),
+            tracksOpens: $mail->html !== null && ($mail->trackOpens ?? $this->domainTracking($bucket, $mail->from->address)->opens),
+            tags: $mail->tags,
+            metadata: $mail->metadata,
+            sendAt: $later ? $sendAt : null,
         );
 
         $this->mails[$bucket][$stored->id] = $stored;
         $this->sentMail[] = ['mail' => $mail, 'project' => $project, 'id' => $stored->id];
 
-        return $this->remember($idempotencyKey, $fingerprint, $stored);
+        return $stored;
     }
 
     public function findMail(string $id, ?string $project = null): ?Mail
@@ -282,7 +349,8 @@ trait FakesMail
 
         $this->releasedMail[] = $id;
 
-        return $this->mails[$bucket][$id] = new Mail($mail->id, 'queued', $mail->from, $mail->subject, $mail->createdAt, null, $mail->verdicts, $recipients, $mail->sentAt, $mail->tracksClicks);
+        // Its time may not have come yet: then it goes back to waiting.
+        return $this->mails[$bucket][$id] = $mail->became($mail->sendAt !== null && $mail->sendAt > $this->now() ? 'scheduled' : 'queued', null, $recipients);
     }
 
     public function discardMail(string $id, ?string $project = null): Mail
@@ -293,7 +361,25 @@ trait FakesMail
 
         $this->discardedMail[] = $id;
 
-        return $this->mails[$bucket][$id] = new Mail($mail->id, 'blocked', $mail->from, $mail->subject, $mail->createdAt, 'The held mail was discarded.', $mail->verdicts, $mail->recipients, $mail->sentAt, $mail->tracksClicks);
+        return $this->mails[$bucket][$id] = $mail->became('blocked', 'The held mail was discarded.');
+    }
+
+    public function cancelMail(string $id, ?string $project = null): Mail
+    {
+        $this->record(new RecordedCall(Operation::CancelMail, $project, $id));
+        $bucket = $this->bucket($project);
+        $mail = $this->mails[$bucket][$id] ?? throw $this->missing('mail_not_found', 'No mail with that id exists in this project.');
+
+        if ($mail->status !== 'scheduled') {
+            throw new RelayConflict('Cbox Relay answered 409 Conflict: The mail is not waiting to be sent.', new Problem(409, 'Conflict', 'The mail is not waiting to be sent.', self::PROBLEMS.'mail_not_scheduled'));
+        }
+
+        $this->cancelledMail[] = $id;
+
+        return $this->mails[$bucket][$id] = $mail->became('cancelled', null, array_map(
+            static fn (MailRecipient $recipient): MailRecipient => $recipient->status === 'queued' ? new MailRecipient($recipient->address, $recipient->type, 'failed', 'The mail was cancelled.') : $recipient,
+            $mail->recipients,
+        ));
     }
 
     /**
@@ -309,9 +395,9 @@ trait FakesMail
     }
 
     /**
-     * Set a stored domain's click tracking as if it had been changed earlier. Records no call.
+     * Set a stored domain's tracking as if it had been changed earlier. Records no call.
      */
-    public function seedTracking(string $domainId, bool $clicks = true, ?string $host = null): SendingDomain
+    public function seedTracking(string $domainId, bool $clicks = true, ?string $host = null, bool $opens = false): SendingDomain
     {
         foreach ($this->domains as $bucket => $domains) {
             $domain = $domains[$domainId] ?? null;
@@ -319,7 +405,7 @@ trait FakesMail
             if ($domain !== null) {
                 return $this->domains[$bucket][$domainId] = new SendingDomain(
                     $domain->id, $domain->domain, $domain->status, $domain->createdAt, $domain->records, $domain->verifiedAt, $domain->checkedAt,
-                    new DomainTracking($clicks, $host),
+                    new DomainTracking($clicks, $host, $opens),
                 );
             }
         }
@@ -342,13 +428,13 @@ trait FakesMail
             $mail = $mails[$id] ?? null;
 
             if ($mail !== null) {
-                $this->mails[$bucket][$id] = new Mail(
-                    $mail->id, $status, $mail->from, $mail->subject, $mail->createdAt, $reason, $mail->verdicts,
-                    array_map(static fn (MailRecipient $recipient): MailRecipient => $recipient->status === 'queued' && in_array($status, ['sent', 'failed'], true)
-                        ? new MailRecipient($recipient->address, $recipient->type, $status, $reason)
-                        : $recipient, $mail->recipients),
-                    $status === 'sent' ? $this->now() : $mail->sentAt,
-                    $mail->tracksClicks,
+                $changed = $mail->became($status, $reason, array_map(static fn (MailRecipient $recipient): MailRecipient => $recipient->status === 'queued' && in_array($status, ['sent', 'failed'], true)
+                    ? new MailRecipient($recipient->address, $recipient->type, $status, $reason)
+                    : $recipient, $mail->recipients));
+
+                $this->mails[$bucket][$id] = $status !== 'sent' ? $changed : new Mail(
+                    $changed->id, $changed->status, $changed->from, $changed->subject, $changed->createdAt, $changed->reason, $changed->verdicts, $changed->recipients,
+                    $this->now(), $changed->tracksClicks, $changed->tracksOpens, $changed->tags, $changed->metadata, $changed->sendAt,
                 );
             }
         }
@@ -366,14 +452,9 @@ trait FakesMail
             $mail = $mails[$mailId] ?? null;
 
             if ($mail !== null) {
-                $this->mails[$bucket][$mailId] = new Mail(
-                    $mail->id, $mail->status, $mail->from, $mail->subject, $mail->createdAt, $mail->reason, $mail->verdicts,
-                    array_map(static fn (MailRecipient $recipient): MailRecipient => strtolower($recipient->address) === strtolower($address)
-                        ? new MailRecipient($recipient->address, $recipient->type, $status, $detail)
-                        : $recipient, $mail->recipients),
-                    $mail->sentAt,
-                    $mail->tracksClicks,
-                );
+                $this->mails[$bucket][$mailId] = $mail->became($mail->status, $mail->reason, array_map(static fn (MailRecipient $recipient): MailRecipient => strtolower($recipient->address) === strtolower($address)
+                    ? new MailRecipient($recipient->address, $recipient->type, $status, $detail)
+                    : $recipient, $mail->recipients));
             }
         }
 
@@ -414,6 +495,20 @@ trait FakesMail
         Assert::assertCount(0, $this->sentMail, 'Mail was sent through Cbox Relay.');
     }
 
+    /** The stored sending domain `$id` has open tracking on (or, with false, off). */
+    public function assertDomainTracksOpens(string $id, bool $opens = true): void
+    {
+        foreach ($this->domains as $domains) {
+            if (isset($domains[$id])) {
+                Assert::assertSame($opens, $domains[$id]->tracking->opens, "The sending domain '{$id}' ".($opens ? 'does not track' : 'tracks').' opens in Cbox Relay.');
+
+                return;
+            }
+        }
+
+        Assert::fail("The fake holds no sending domain '{$id}'.");
+    }
+
     /** The stored sending domain `$id` has click tracking on (or, with false, off). */
     public function assertDomainTracksClicks(string $id, bool $clicks = true): void
     {
@@ -440,6 +535,11 @@ trait FakesMail
         Assert::assertContains($id, $this->discardedMail, "The held mail '{$id}' was not discarded through Cbox Relay.");
     }
 
+    public function assertMailCancelled(string $id): void
+    {
+        Assert::assertContains($id, $this->cancelledMail, "The scheduled mail '{$id}' was not cancelled through Cbox Relay.");
+    }
+
     /** A mail that exists in the project and is held; anything else is the 404 or the 409 the real service answers. */
     private function heldMailIn(string $bucket, string $id): Mail
     {
@@ -459,13 +559,13 @@ trait FakesMail
         return array_any($this->domains[$bucket] ?? [], static fn (SendingDomain $known): bool => $known->domain === strtolower($domain) && $known->verified());
     }
 
-    /** What the sending domain of an address says about click tracking; false when the project has no such domain. */
-    private function domainTracksClicks(string $bucket, string $address): bool
+    /** What the sending domain of an address says about tracking; all off when the project has no such domain. */
+    private function domainTracking(string $bucket, string $address): DomainTracking
     {
         $at = strrpos($address, '@');
         $domain = $at === false ? '' : strtolower(substr($address, $at + 1));
 
-        return array_any($this->domains[$bucket] ?? [], static fn (SendingDomain $known): bool => $known->domain === $domain && $known->tracking->clicks);
+        return array_find($this->domains[$bucket] ?? [], static fn (SendingDomain $known): bool => $known->domain === $domain)->tracking ?? new DomainTracking;
     }
 
     private function guardMail(string $bucket, OutgoingMail $mail): void

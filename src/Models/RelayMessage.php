@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $bounced
  * @property int $complained
  * @property int $clicked
+ * @property int $opened
  * @property CarbonImmutable|null $last_event_at
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -63,6 +64,7 @@ class RelayMessage extends Model
             'bounced' => 'integer',
             'complained' => 'integer',
             'clicked' => 'integer',
+            'opened' => 'integer',
             'last_event_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

@@ -7,7 +7,6 @@ use Cbox\Relay\Client\Data\OutgoingMail;
 use Cbox\Relay\Client\Exceptions\RelayConflict;
 use Cbox\Relay\Client\Exceptions\RelayException;
 use Cbox\Relay\Client\Exceptions\RelayNotFound;
-use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Exceptions\RelayUnavailable;
 use Cbox\Relay\Client\Facades\Relay;
 use Cbox\Relay\Client\Testing\Operation;
@@ -136,13 +135,13 @@ describe('on the fake', function (): void {
             ->and(fn () => $this->relay->assertMailDiscarded($this->mail->id))->toThrow(AssertionFailedError::class);
     });
 
-    it('answers 404 for a mail the project does not have and needs a project', function (): void {
+    it('answers 404 for a mail the project does not have, the default project included', function (): void {
         $this->relay->seedProject('ws_2');
         $this->relay->markMail($this->mail->id, 'quarantined');
 
         expect(fn () => $this->scoped->releaseMail('msg_missing'))->toThrow(RelayNotFound::class)
             ->and(fn () => Relay::forProject('ws_2')->discardMail($this->mail->id))->toThrow(RelayNotFound::class)
-            ->and(fn () => Relay::releaseMail($this->mail->id))->toThrow(RelayProjectRequired::class)
-            ->and(fn () => Relay::discardMail($this->mail->id))->toThrow(RelayProjectRequired::class);
+            ->and(fn () => Relay::releaseMail($this->mail->id))->toThrow(RelayNotFound::class)
+            ->and(fn () => Relay::discardMail($this->mail->id))->toThrow(RelayNotFound::class);
     });
 });

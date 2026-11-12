@@ -14,6 +14,10 @@ use Cbox\Relay\Client\Webhooks\RelayEvent;
  */
 readonly class MailBounced implements RelayEvent
 {
+    /**
+     * @param  list<string>  $tags  the tags the mail was sent with
+     * @param  array<string, string>  $metadata  the metadata the mail was sent with
+     */
     public function __construct(
         public string $id,
         public string $projectId,
@@ -21,6 +25,8 @@ readonly class MailBounced implements RelayEvent
         public bool $permanent = true,
         public ?string $status = null,
         public ?string $diagnostic = null,
+        public array $tags = [],
+        public array $metadata = [],
     ) {}
 
     public static function type(): string
@@ -37,6 +43,8 @@ readonly class MailBounced implements RelayEvent
             permanent: Payload::bool($data, 'permanent'),
             status: Payload::nullableString($data, 'status'),
             diagnostic: Payload::nullableString($data, 'diagnostic'),
+            tags: Labels::tags($data),
+            metadata: Labels::metadata($data),
         );
     }
 }

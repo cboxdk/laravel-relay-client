@@ -25,6 +25,36 @@ All notable changes to this package are documented here. The format follows
   `$forwardFor`.
 - **The fake** follows: `seedTracking()`, `assertDomainTracksClicks()`, single and
   forwarding addresses, and `Operation::UpdateDomain`.
+- **Tags and metadata on a mail.** `OutgoingMail::$tags` and `$metadata` (`tagged()`,
+  `withMetadata()`), read back as `Mail::$tags` and `$metadata`, and carried by every
+  event about a sent mail: `MailAccepted`, `MailBlocked`, `MailDelivered`, `MailDeferred`,
+  `MailBounced`, `MailComplained`, `MailClicked` and `MailOpened` each have `$tags` and
+  `$metadata`. Through the mail transport a mailable's own `tags:` and `metadata:` (Symfony's
+  `TagHeader` and `MetadataHeader`) become the mail's.
+- **Inline images.** `MailAttachment::$contentId`. Through the mail transport an embedded
+  image (`$message->embed()`, `embedData()`) goes out inline and the `cid:` in the HTML
+  follows the id Relay gets; before, it went as an ordinary attachment.
+- **Send later.** `OutgoingMail::$sendAt` (`sendingAt()`), the statuses `scheduled` and
+  `cancelled`, `Mail::$sendAt` and `scheduled()`, and `Relay::cancelMail($id)`
+  (`POST /v1/mail/{id}/cancel`; `RelayConflict` with the type `mail_not_scheduled` when it
+  no longer waits). Through the mail transport: the header `X-Relay-Send-At`.
+  `Mail::accepted()` is also true for a scheduled mail.
+- **Many mails in one call.** `Relay::sendMailBatch($mails, $idempotencyKey)` (`POST
+  /v1/mail/batch`) answers one `Data\MailBatchResult` per mail, in order: the status, and
+  the `Mail` or the `Problem`. A refused mail does not throw and does not stop the others.
+- **A list.** `Relay::mails(?MailFilter $filter, $limit, $cursor)` (`GET /v1/mail`), with
+  `Data\MailFilter` for status, sender, recipient, tag and time.
+- **Open tracking.** `Relay::domains()->trackOpens($id)`, `TrackingChanges::$opens`,
+  `DomainTracking::$opens`, `OutgoingMail::$trackOpens` (`trackingOpens()`),
+  `Mail::$tracksOpens`, and the header `X-Relay-Track-Opens` through the mail transport.
+  Off unless turned on. An open is a weak signal and personal data; the docs say why.
+- **`mail.opened`** as `Webhooks\Events\MailOpened` (`id`, `projectId`, `openedAt`) and
+  **`mail.deferred`** as `Webhooks\Events\MailDeferred` (`id`, `projectId`, `recipient`,
+  `status`, `diagnostic`), with their Laravel events `Webhooks\Received\MailOpened` and
+  `MailDeferred`. The local store keeps both and counts opens in `relay_messages.opened`.
+- **The fake** follows these too: scheduled and cancelled mail (`assertMailCancelled()`),
+  batches, `mails()`, tags and metadata, open tracking (`assertDomainTracksOpens()`,
+  `seedTracking(opens:)`), and `Operation::ListMail`, `SendMailBatch` and `CancelMail`.
 
 - **A webhook route with Laravel events.** `Relay::webhookRoutes()` in a routes file, or
   `relay.webhook.route`, registers `POST relay/webhook` (and `relay/webhook/{connection}`).
@@ -59,18 +89,31 @@ All notable changes to this package are documented here. The format follows
   `QueuedEventPublisher`'s and `PublishEvent`'s took optional trailing arguments** for the
   connection (and, on `Relay`, the store). `PublishEvent::handle()` takes the client as an
   optional second argument. Nothing changes for code that does not pass them.
+- **Breaking: a project no longer has to be named.** Relay now acts for the key's own
+  project or, for an organization key, for the environment's project `default` (made on
+  first use) when a call sends no `Relay-Project`, and it no longer answers
+  `project_required`. So the client stopped refusing: a call with no project named goes
+  out without the header. Removed with it: the exception `RelayScopeRequired` (it is not
+  renamed, it is gone), the config key `relay.scope_key` / `RELAY_SCOPE_KEY` (a project
+  key needs no announcing any more), the `$projectKey` argument of `Relay`'s constructor
+  and `ConnectionConfig::$projectKey`, and `ActingProject::required()` and
+  `$lockedByKey`. If you keep a project per customer, name it on every call: one that
+  forgets now lands in `default` instead of throwing. The fake does the same, under
+  `FakeRelay::DEFAULT_PROJECT`. `relay:doctor` no longer warns when no project is set, and
+  fails when a project key is told to act for another project than its own.
 - **Breaking: a scope is called a project**, as in Relay itself and the other Cbox apps.
   Relay's API is now `/v1/projects` with the header `Relay-Project`, and ids start with
   `prj_`. Every name follows: `Relay::forProject()`, `Relay::projects()`, `putProject()`,
-  `Data\Project`, `RelayProjectRequired`, `ProjectOutboundPaused`, the config keys
-  `relay.project` and `relay.project_key` (`RELAY_PROJECT`, `RELAY_PROJECT_KEY`), the
+  `Data\Project`, `ProjectOutboundPaused`, the config key `relay.project`
+  (`RELAY_PROJECT`), the
   mail header `X-Relay-Project`, and the fake's `seedProject()` and `assertProjectPut()`.
   There are no aliases for the old names. The webhook envelope still carries the owner
   under `scope`: that is the envelope's own field.
 - **Breaking for your own `Contracts\RelayTransport`:** the contract gained
-  `updateDomain()`, and `createInboundRoute()` takes a nullable `$domain` and two more
-  arguments at the end (`$localPart`, `$forwardFor`). Code that calls
-  `Relay::inboundRoutes()->register()` is unaffected.
+  `updateDomain()`, `listMail()`, `sendMailBatch()` and `cancelMail()`, and
+  `createInboundRoute()` takes a nullable `$domain` and two more arguments at the end
+  (`$localPart`, `$forwardFor`). Code that calls `Relay::inboundRoutes()->register()` is
+  unaffected.
 - The fake's verification record for a domain route is now named `_relay-challenge.<domain>`,
   as Relay's is, and a route that became active no longer carries one.
 
