@@ -54,7 +54,8 @@ use stdClass;
 
 /**
  * The Relay API over Laravel's HTTP client: bearer key, `Relay-Project` when acting for a
- * project, the configured timeouts, and every error answer as a typed exception. One call
+ * project, the configured timeouts, and every error answer as a typed exception. It speaks
+ * for one connection: the default, or the one it was built for by name. One call
  * is one request; nothing is retried here (the queued publish retries on its own, see
  * {@see PublishEvent}).
  */
@@ -63,6 +64,7 @@ class HttpRelayTransport implements RelayTransport
     public function __construct(
         private readonly RelayConfig $config,
         private readonly Factory $http,
+        private readonly ?string $connection = null,
     ) {}
 
     public function whoami(?string $project = null): Identity
@@ -477,16 +479,20 @@ class HttpRelayTransport implements RelayTransport
      */
     private function send(string $method, string $path, array $query = [], ?array $body = null, ?string $project = null, ?string $idempotencyKey = null): Response
     {
-        if (! $this->config->configured()) {
-            throw new RelayNotConfigured;
+        $connection = $this->config->connection($this->connection);
+
+        if (! $connection->configured()) {
+            throw $this->connection === null
+                ? new RelayNotConfigured
+                : new RelayNotConfigured("The Relay connection '{$connection->name}' is not configured: it needs a key (and a URL, here or at the top level).");
         }
 
         $request = $this->http
-            ->baseUrl($this->config->url())
-            ->withToken($this->config->key())
+            ->baseUrl($connection->url)
+            ->withToken($connection->key)
             ->acceptJson()
-            ->connectTimeout($this->config->connectTimeout())
-            ->timeout($this->config->timeout());
+            ->connectTimeout($connection->connectTimeout)
+            ->timeout($connection->timeout);
 
         if ($project !== null && $project !== '') {
             $request->withHeader('Relay-Project', $project);

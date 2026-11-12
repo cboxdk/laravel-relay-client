@@ -29,6 +29,11 @@ API key, the public endpoint, nothing else.
   middleware verifies a delivery, and Relay's own events arrive as typed objects.
 - **[Inbound webhooks](core-concepts/inbound-webhooks.md)**: sources that take a
   provider's webhooks for a project and forward them to your endpoints.
+- **[Local delivery status](core-concepts/delivery-status.md)**: an optional store of
+  the mail you sent and what Relay said about it, in your own database.
+- **[Connections](core-concepts/connections.md)**: more than one Relay key from one app.
+- **[Commands](getting-started/commands.md)**: `relay:install`, `relay:doctor`,
+  `relay:ping`, `relay:tail` and a health check.
 - **[Authentication and projects](core-concepts/authentication.md)**: `whoami()`,
   `forProject()`, and a clear exception when a call needs a project and has none.
 - **[Projects](core-concepts/projects.md)** and **[the delivery log](core-concepts/deliveries.md)**.
@@ -63,9 +68,9 @@ written.
 
 ## Documentation
 
-- **Getting started**: [Requirements](requirements.md), [Installation](getting-started/installation.md), [Quickstart](quickstart.md), [Testing](getting-started/testing.md)
-- **Core concepts**: [Architecture](core-concepts/architecture.md), [Authentication](core-concepts/authentication.md), [Projects](core-concepts/projects.md), [Deliveries](core-concepts/deliveries.md), [Errors](core-concepts/errors.md), [Publishing events](core-concepts/publishing-events.md), [Webhook endpoints](core-concepts/webhook-endpoints.md), [The judge](core-concepts/judge.md), [Inbound mail](core-concepts/inbound-mail.md), [Web Push](core-concepts/web-push.md), [Outbound mail](core-concepts/outbound-mail.md), [Webhooks from Relay](core-concepts/incoming-webhooks.md), [Inbound webhooks](core-concepts/inbound-webhooks.md)
-- **Cookbook**: [Register workspaces as projects](cookbook/register-workspaces-as-projects.md), [Page through the delivery log](cookbook/page-through-the-delivery-log.md), [Offer webhooks to your customers](cookbook/offer-webhooks-to-your-customers.md), [React to bounces and complaints](cookbook/react-to-bounces-and-complaints.md)
+- **Getting started**: [Requirements](requirements.md), [Installation](getting-started/installation.md), [Quickstart](quickstart.md), [Testing](getting-started/testing.md), [Commands](getting-started/commands.md)
+- **Core concepts**: [Architecture](core-concepts/architecture.md), [Authentication](core-concepts/authentication.md), [Projects](core-concepts/projects.md), [Deliveries](core-concepts/deliveries.md), [Errors](core-concepts/errors.md), [Publishing events](core-concepts/publishing-events.md), [Webhook endpoints](core-concepts/webhook-endpoints.md), [The judge](core-concepts/judge.md), [Inbound mail](core-concepts/inbound-mail.md), [Web Push](core-concepts/web-push.md), [Outbound mail](core-concepts/outbound-mail.md), [Webhooks from Relay](core-concepts/incoming-webhooks.md), [Inbound webhooks](core-concepts/inbound-webhooks.md), [Local delivery status](core-concepts/delivery-status.md), [Connections](core-concepts/connections.md)
+- **Cookbook**: [Register workspaces as projects](cookbook/register-workspaces-as-projects.md), [Page through the delivery log](cookbook/page-through-the-delivery-log.md), [Offer webhooks to your customers](cookbook/offer-webhooks-to-your-customers.md), [React to bounces and complaints](cookbook/react-to-bounces-and-complaints.md), [Know what happened to a mail](cookbook/know-what-happened-to-a-mail.md)
 - **Configuration**: [Reference](configuration/reference.md)
 - **Extension points**: [Overview](extension-points/_index.md)
 - **Security**: [Threat model](security/threat-model.md)

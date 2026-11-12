@@ -26,8 +26,39 @@ All notable changes to this package are documented here. The format follows
 - **The fake** follows: `seedTracking()`, `assertDomainTracksClicks()`, single and
   forwarding addresses, and `Operation::UpdateDomain`.
 
+- **A webhook route with Laravel events.** `Relay::webhookRoutes()` in a routes file, or
+  `relay.webhook.route`, registers `POST relay/webhook` (and `relay/webhook/{connection}`).
+  Off by default. A verified delivery is handled once (its delivery id is remembered in
+  the cache) and dispatched as one Laravel event per type: `Webhooks\Received\MailDelivered`,
+  `MailBounced`, `MailClicked` and the rest, each carrying the typed data and the
+  delivery, and `Received\OtherEventReceived` for every other type. All implement
+  `Contracts\ReceivedWebhook`. The answer is `204` after the synchronous listeners
+  returned; a listener that throws answers `500` and the retry is handled as new.
+- **Local delivery status, optional.** With `relay.store.enabled` and the migration
+  from `relay:install --store`, every mail sent through `Relay::sendMail()` or the mail
+  transport is a `Models\RelayMessage` row and every webhook event about a mail a
+  `Models\RelayMessageEvent` row that brings it up to date. Idempotent; off by default,
+  and off needs no database. The subject is kept as a hash unless `relay.store.subject`
+  says `plain` or `none`. `Contracts\MessageStore` is the seam, `Testing\FakeMessageStore`
+  the in-memory one.
+- **Commands:** `relay:install`, `relay:doctor` (exits non-zero when something would
+  break; never prints a key or a secret), `relay:ping` and `relay:tail`.
+- **A health check** for cboxdk/laravel-health: `Health\RelayConnectionCheck`. The health
+  package is a suggestion, not a requirement.
+- **Several connections by name.** `relay.connections`, `Relay::connection('billing')`,
+  and `'connection' => 'billing'` on a mailer. Each has its own key, project and webhook
+  secret; the top level of the config is the connection `default`, so an existing config
+  keeps working. A published event is sent with the key of the connection it was
+  published on. `relay.transport.{name}` binds a transport for one connection.
+
 ### Changed
 
+- **Two more `illuminate/*` components are required:** `illuminate/console` and
+  `illuminate/database`. A Laravel app has both.
+- **`Relay`'s constructor, `HttpRelayTransport`'s, `RelayMailTransport`'s,
+  `QueuedEventPublisher`'s and `PublishEvent`'s took optional trailing arguments** for the
+  connection (and, on `Relay`, the store). `PublishEvent::handle()` takes the client as an
+  optional second argument. Nothing changes for code that does not pass them.
 - **Breaking: a scope is called a project**, as in Relay itself and the other Cbox apps.
   Relay's API is now `/v1/projects` with the header `Relay-Project`, and ids start with
   `prj_`. Every name follows: `Relay::forProject()`, `Relay::projects()`, `putProject()`,

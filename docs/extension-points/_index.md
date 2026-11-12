@@ -75,6 +75,21 @@ $this->app->bind(WebhookSecrets::class, WorkspaceWebhookSecrets::class);
 An empty list refuses the delivery with 500. Note that the resolver runs before the
 signature is checked: whatever it reads from the request to pick a secret is unverified.
 
+## A transport for one connection
+
+A [named connection](../core-concepts/connections.md) uses the HTTP transport with its
+own key. Bind `relay.transport.{name}` to give it another one. When `RelayTransport`
+itself is bound to something that is not the HTTP transport (a decorator, the fake),
+every connection goes through that.
+
+## Replace the local store
+
+`Cbox\Relay\Client\Contracts\MessageStore` is what `Relay::sendMail()` and the
+webhook route write to: `recordSent()`, `describe()`, `recordEvent()` and `enabled()`.
+The default keeps nothing (`Store\NullMessageStore`), or writes two tables when
+`relay.store.enabled` is on (`Store\DatabaseMessageStore`). Bind your own to keep the
+rows elsewhere; `Testing\FakeMessageStore` keeps them in memory.
+
 ## Customize the HTTP client
 
 `HttpRelayTransport` uses Laravel's HTTP client factory, so the factory's global

@@ -1,7 +1,7 @@
 {
     "bomFormat": "CycloneDX",
     "specVersion": "1.5",
-    "serialNumber": "urn:uuid:5c7ed802-b844-45c5-a8f7-fbe3f828dbc1",
+    "serialNumber": "urn:uuid:b0af1fec-bd34-4e4e-a85c-224a6c26c64a",
     "version": 1,
     "metadata": {
         "tools": [
@@ -197,11 +197,11 @@
         },
         {
             "type": "library",
-            "bom-ref": "pkg:composer/guzzlehttp/psr7@3.2.0",
+            "bom-ref": "pkg:composer/guzzlehttp/psr7@3.2.1",
             "group": "guzzlehttp",
             "name": "psr7",
-            "version": "3.2.0",
-            "purl": "pkg:composer/guzzlehttp/psr7@3.2.0",
+            "version": "3.2.1",
+            "purl": "pkg:composer/guzzlehttp/psr7@3.2.1",
             "description": "PSR-7 message implementation that also provides common utility methods",
             "licenses": [
                 {

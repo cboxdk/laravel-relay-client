@@ -30,6 +30,9 @@ The package installs only when your project satisfies the constraints declared i
   receives.
 - **`illuminate/routing`** `^12.0 || ^13.0`: the router the `relay.webhook` middleware
   alias is registered with.
+- **`illuminate/console`** `^12.0 || ^13.0`: the `relay:*` commands.
+- **`illuminate/database`** `^12.0 || ^13.0`: the models of the optional local store.
+  Nothing touches a database unless `relay.store.enabled` is on.
 - **`symfony/mailer`, `symfony/mime`** `^7.2 || ^8.0`: the transport base class and the
   `Email` the mail transport reads. `illuminate/mail` requires both already.
 
@@ -46,3 +49,8 @@ extension beyond what Laravel itself requires. The HTTP client needs Guzzle, whi
   `suppressions:manage`, `push:send`, `push:manage`, `inbound:read`, `inbound:manage`,
   `judge:run`, `sources:manage`.
 - A queue worker, for `Relay::publish()`.
+
+## Optional
+
+- **`cboxdk/laravel-health`** `^2.0`: only for `Health\RelayConnectionCheck`. Suggested,
+  never required.

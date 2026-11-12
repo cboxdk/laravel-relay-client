@@ -99,6 +99,64 @@ return [
         'secret' => env('RELAY_WEBHOOK_SECRET'),
         'previous_secret' => env('RELAY_WEBHOOK_PREVIOUS_SECRET'),
         'tolerance' => (int) env('RELAY_WEBHOOK_TOLERANCE', 300),
+
+        // The package's own endpoint: a path such as `relay/webhook` registers
+        // POST {path} and POST {path}/{connection}, which verify a delivery, handle it
+        // once and dispatch a Laravel event for it. Null registers nothing; a routes
+        // file can call Relay::webhookRoutes() instead.
+        'route' => env('RELAY_WEBHOOK_ROUTE'),
+
+        // The cache store handled deliveries are remembered in (null: the default
+        // store), and for how many seconds. Relay retries a delivery for about a day.
+        'cache' => env('RELAY_WEBHOOK_CACHE'),
+        'dedupe' => (int) env('RELAY_WEBHOOK_DEDUPE', 172800),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Local delivery status (optional)
+    |--------------------------------------------------------------------------
+    |
+    | Off by default: nothing is kept here and no database is needed. When on,
+    | every mail sent through Relay gets a row in `relay_messages`, and every
+    | webhook event about a mail (through the package's webhook route) a row in
+    | `relay_message_events` that brings the mail's row up to date. Publish the
+    | migration with `php artisan relay:install --store`.
+    |
+    | `subject` says how a mail's subject is kept: `hash` (its SHA-256, enough
+    | to find a mail whose subject you know), `plain`, or `none`.
+    |
+    */
+
+    'store' => [
+        'enabled' => (bool) env('RELAY_STORE', false),
+        'connection' => env('RELAY_STORE_CONNECTION'),
+        'subject' => env('RELAY_STORE_SUBJECT', 'hash'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | More connections (optional)
+    |--------------------------------------------------------------------------
+    |
+    | Everything above is the connection named `default`. An app that talks to
+    | Relay with more than one key (another organization, live and test side by
+    | side) names the others here and reaches them with
+    | Relay::connection('billing'), or per mailer with
+    | 'billing' => ['transport' => 'relay', 'connection' => 'billing'].
+    |
+    | A connection has its own key, project and webhook secret. `url`,
+    | `timeout` and `connect_timeout` fall back to the ones above.
+    |
+    | 'billing' => [
+    |     'key' => env('RELAY_BILLING_KEY'),
+    |     'project' => env('RELAY_BILLING_PROJECT'),
+    |     'project_key' => false,
+    |     'webhook' => ['secret' => env('RELAY_BILLING_WEBHOOK_SECRET')],
+    | ],
+    |
+    */
+
+    'connections' => [],
 
 ];

@@ -43,10 +43,12 @@ class RelayMailTransport extends AbstractTransport
     /**
      * @param  Closure(): Relay  $relay  resolved per send, so a fake bound later is the one used
      * @param  string|null  $project  the mailer's own project; null for the client's default
+     * @param  string|null  $connection  the mailer's own Relay connection (`relay.connections`); null for the default
      */
     public function __construct(
         private readonly Closure $relay,
         private readonly ?string $project = null,
+        private readonly ?string $connection = null,
     ) {
         parent::__construct();
     }
@@ -67,7 +69,7 @@ class RelayMailTransport extends AbstractTransport
         $email = MessageConverter::toEmail($original);
 
         $project = self::control($email, self::PROJECT_HEADER) ?? $this->project;
-        $relay = ($this->relay)();
+        $relay = $this->connection === null ? ($this->relay)() : ($this->relay)()->connection($this->connection);
 
         $outgoing = EmailMapper::toOutgoingMail($email, [
             strtolower(self::PROJECT_HEADER),

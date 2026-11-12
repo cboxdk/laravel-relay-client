@@ -167,12 +167,15 @@ it('publishes its config', function (): void {
 it('ships the documented defaults', function (): void {
     $config = require __DIR__.'/../../config/relay.php';
 
-    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'project', 'project_key', 'publish', 'webhook'])
+    expect($config)->toHaveKeys(['url', 'key', 'timeout', 'connect_timeout', 'project', 'project_key', 'publish', 'webhook', 'store', 'connections'])
         ->and($config['timeout'])->toBe(5.0)
         ->and($config['connect_timeout'])->toBe(2.0)
         ->and($config['project_key'])->toBeFalse()
         ->and($config['publish'])->toBe(['sync' => false, 'connection' => null, 'queue' => null, 'tries' => 5, 'backoff' => [10, 30, 120, 600]])
-        ->and($config['webhook'])->toBe(['secret' => null, 'previous_secret' => null, 'tolerance' => 300]);
+        ->and($config['webhook'])->toBe(['secret' => null, 'previous_secret' => null, 'tolerance' => 300, 'route' => null, 'cache' => null, 'dedupe' => 172800])
+        // Off unless asked for: no webhook route, no local store, one connection.
+        ->and($config['store'])->toBe(['enabled' => false, 'connection' => null, 'subject' => 'hash'])
+        ->and($config['connections'])->toBe([]);
 });
 
 it('reads the publish and webhook settings, falling back when they are unusable', function (): void {

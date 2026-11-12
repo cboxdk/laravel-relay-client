@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client;
 
 use Cbox\Relay\Client\Contracts\EventPublisher;
+use Cbox\Relay\Client\Contracts\MessageStore;
 use Cbox\Relay\Client\Contracts\RelayTransport;
 use Cbox\Relay\Client\Data\Delivery;
 use Cbox\Relay\Client\Data\DeliveryFilter;
@@ -26,6 +27,8 @@ use Cbox\Relay\Client\Data\TemplateReference;
 use Cbox\Relay\Client\Exceptions\RelayProjectRequired;
 use Cbox\Relay\Client\Jobs\PublishEvent;
 use Cbox\Relay\Client\Publishing\ImmediateEventPublisher;
+use Cbox\Relay\Client\Store\NullMessageStore;
+use Closure;
 use DateTimeInterface;
 use Illuminate\Support\Carbon;
 
@@ -44,18 +47,48 @@ class Relay
 
     private readonly EventPublisher $publisher;
 
+    private readonly MessageStore $store;
+
     /**
      * @param  EventPublisher|null  $publisher  how `publish()` hands events over; null publishes at once through the transport
      * @param  bool  $projectKey  the API key is a project key, so calls that need a project go out without `Relay-Project`
+     * @param  (Closure(string): self)|null  $connections  builds the client of another connection by name; null when there is only this one
+     * @param  MessageStore|null  $store  where sent mail is kept locally; null keeps nothing
+     * @param  string|null  $connection  the name of the connection this client speaks for; null for the default
      */
     public function __construct(
         private readonly RelayTransport $transport,
         ?string $project = null,
         ?EventPublisher $publisher = null,
         bool $projectKey = false,
+        private readonly ?Closure $connections = null,
+        ?MessageStore $store = null,
+        private readonly ?string $connection = null,
     ) {
         $this->acting = new ActingProject($project, $projectKey);
         $this->publisher = $publisher ?? new ImmediateEventPublisher($transport);
+        $this->store = $store ?? new NullMessageStore;
+    }
+
+    /**
+     * The client of another connection (`relay.connections.{name}`): its own key, project
+     * and Relay. `default` is the top level of the config.
+     *
+     * @throws Exceptions\RelayNotConfigured when no connection has that name
+     */
+    public function connection(string $name): self
+    {
+        if ($this->connections === null) {
+            throw new Exceptions\RelayNotConfigured("This Relay client was built by hand and knows no connection named '{$name}': resolve it from the container.");
+        }
+
+        return ($this->connections)($name);
+    }
+
+    /** The name of the connection this client speaks for; null for the default. */
+    public function connectionName(): ?string
+    {
+        return $this->connection;
     }
 
     /** Whose key this is, on which environment, and what it may do. */
@@ -254,7 +287,14 @@ class Relay
      */
     public function sendMail(OutgoingMail $mail, ?string $idempotencyKey = null): Mail
     {
-        return $this->transport->sendMail($mail, $idempotencyKey, $this->acting->required());
+        $project = $this->acting->required();
+        $sent = $this->transport->sendMail($mail, $idempotencyKey, $project);
+
+        if ($this->store->enabled()) {
+            $this->store->recordSent($sent, $mail, $project, $this->connection);
+        }
+
+        return $sent;
     }
 
     /** What became of a mail and of each recipient; null when there is none with that id. */

@@ -2,7 +2,8 @@
 
 What this package does today, and what it does not. It is the client for Cbox Relay's
 v1 API as described in the service's `docs/openapi/relay.v1.yaml` and its API guides.
-Released as v0.1.0. It has not been run against a live Relay.
+Released as v0.1.0; 0.2.0 is cut in the changelog and not released. It has not been run
+against a live Relay.
 
 ## Built and tested
 
@@ -58,7 +59,7 @@ Released as v0.1.0. It has not been run against a live Relay.
 - `Notifications\RelayWebPushChannel` and `WebPushMessage`.
 - The `relay.webhook` middleware, `Webhooks\WebhookSignature` (the `cbox` scheme,
   tolerance, several secrets), `Webhooks\IncomingWebhook` (the `cbox` and CloudEvents
-  envelopes) and typed objects for Relay's nine own events.
+  envelopes) and typed objects for Relay's eleven own events.
 - `Testing\FakeRelay` for all of it, `Relay::fake()`, `InteractsWithRelay`. The
   package's own suite uses the fake everywhere except the HTTP transport tests and the
   publish job's retry rules, which use `Http::fake()`.
@@ -66,7 +67,31 @@ Released as v0.1.0. It has not been run against a live Relay.
   the license check, `composer audit --no-dev` and the SBOM check. The suite was run on
   PHP 8.5 with Laravel 13 and with Laravel 12.
 
+- **The Laravel side** (12 November 2026):
+  - `Relay::webhookRoutes()` / `relay.webhook.route`: one route that verifies, handles a
+    delivery once and dispatches a Laravel event per type (`Webhooks\Received\*`, all
+    `Contracts\ReceivedWebhook`), with `OtherEventReceived` for the rest.
+  - The optional local store: `Models\RelayMessage`, `Models\RelayMessageEvent`, a
+    published migration, `Contracts\MessageStore` with a database, a null and a fake
+    implementation, and a `MessageSent` listener that notes the mailable.
+  - `relay:install`, `relay:doctor`, `relay:ping`, `relay:tail`.
+  - `Health\RelayConnectionCheck` for cboxdk/laravel-health (a dev dependency here, a
+    suggestion for an app).
+  - Named connections: `relay.connections`, `Relay::connection()`, a mailer's
+    `connection`, per-connection webhook secrets, and the publish job on its connection.
+
 ## Not built
+
+- **Retention for the local store.** Rows stay until the app removes them.
+- **Status from anything but the package's webhook route.** The store is not filled by
+  polling Relay, and a route of your own does not write to it unless it calls
+  `MessageStore::recordEvent()`.
+- **A recipient's address on the mail row, and the mail's body:** not kept. Event rows do
+  keep the recipient Relay names.
+- **A per-connection queue for publishing.** Every connection's publish job goes on
+  `relay.publish.connection` / `queue`.
+- **An interactive installer.** `relay:install` publishes and prints; it asks nothing and
+  writes no `.env`.
 
 - **Iterating all pages.** `Page::$nextCursor` is handed back by the caller; there is no
   lazy "all events" helper.
@@ -74,8 +99,9 @@ Released as v0.1.0. It has not been run against a live Relay.
 - **A queued `publishBatch()`, mail or push.** `publish()` is the only call that queues
   itself. Queue a mailable or a notification the Laravel way.
 - **Verifying `standard-webhooks` signatures.** The middleware knows the `cbox` scheme.
-- **Replay protection for incoming webhooks.** No record of seen deliveries is kept;
-  deduplicate on `IncomingWebhook::$deliveryId`.
+- **Replay protection on a route of your own.** The package's webhook route remembers
+  delivery ids; a route you write behind `relay.webhook` does not: deduplicate on
+  `IncomingWebhook::$deliveryId`.
 - **Batched webhook deliveries** (the engine's batch envelope): the API has no way to
   ask for them, so they are not parsed.
 - **Inline images in mail.** The API's attachments have no content id, so an embedded
@@ -86,6 +112,12 @@ Released as v0.1.0. It has not been run against a live Relay.
   not know an organization key from a project key; `relay.project_key` is how you tell it.
 
 ## Not verified
+
+- **The Laravel side against a running Relay.** The route, the store and the commands
+  are tested with signed bodies written from the API guide and with the fake. No real
+  delivery from Relay has passed through the route.
+- **The store on PostgreSQL and MySQL.** The suite runs it on SQLite in memory.
+- **`relay:install` in a real app.** Tested in Testbench's skeleton.
 
 - **Against a running Relay.** Every HTTP test runs against `Http::fake()` with bodies
   written from the API description, so the shapes are as described, not as observed.

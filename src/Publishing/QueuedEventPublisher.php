@@ -20,11 +20,12 @@ class QueuedEventPublisher implements EventPublisher
     public function __construct(
         private readonly Dispatcher $bus,
         private readonly RelayConfig $config,
+        private readonly ?string $connection = null,
     ) {}
 
     public function publish(NewEvent $event, ?string $project = null): void
     {
-        $job = PublishEvent::for($event, $project, $this->config->publishTries(), $this->config->publishBackoff())
+        $job = PublishEvent::for($event, $project, $this->config->publishTries(), $this->config->publishBackoff(), $this->connection)
             ->onConnection($this->config->publishConnection())
             ->onQueue($this->config->publishQueue())
             ->afterCommit();
