@@ -308,11 +308,14 @@ it('reads the push key and manages subscriptions', function (): void {
 it('sends a push message and reads what became of it', function (): void {
     $message = ['id' => 'psm_1', 'subscription_id' => 'psb_1', 'status' => 'queued', 'attempts' => 0, 'response_code' => null, 'error' => null, 'created_at' => AT, 'finished_at' => null];
     Http::fake([
-        'relay.test/v1/push' => Http::response($message, 202),
+        // What Relay really answers on create: no attempts yet is null, not 0.
+        'relay.test/v1/push' => Http::response([...$message, 'attempts' => null], 202),
         'relay.test/v1/push/psm_1' => Http::response([...$message, 'status' => 'delivered', 'attempts' => 1, 'response_code' => 201, 'finished_at' => AT]),
     ]);
 
-    expect(http()->sendPush('psb_1', ['title' => 'Shipped'], 3600, PushUrgency::High, 'orders', 'p-1', 'ws_1')->status)->toBe('queued')
+    $sent = http()->sendPush('psb_1', ['title' => 'Shipped'], 3600, PushUrgency::High, 'orders', 'p-1', 'ws_1');
+    expect($sent->status)->toBe('queued')
+        ->and($sent->attempts)->toBe(0)
         ->and(http()->findPush('psm_1', 'ws_1')?->responseCode)->toBe(201);
 
     sentJson('POST', '/v1/push', ['subscription' => 'psb_1', 'payload' => ['title' => 'Shipped'], 'ttl' => 3600, 'urgency' => 'high', 'topic' => 'orders']);

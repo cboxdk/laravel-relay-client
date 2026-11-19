@@ -34,7 +34,8 @@ readonly class PushMessage
             subscriptionId: Payload::string($data, 'subscription_id'),
             status: Payload::string($data, 'status'),
             createdAt: Payload::date($data, 'created_at'),
-            attempts: Payload::int($data, 'attempts'),
+            // Relay answers a new message (202) with `attempts: null`: none yet.
+            attempts: Payload::nullableInt($data, 'attempts') ?? 0,
             responseCode: Payload::nullableInt($data, 'response_code'),
             error: Payload::nullableString($data, 'error'),
             finishedAt: Payload::nullableDate($data, 'finished_at'),
