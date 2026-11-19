@@ -5,6 +5,15 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-19
+
+### Fixed
+
+- **`Relay::push()` reads Relay's answer to a new push message.** Relay answers 202 with
+  `"attempts": null` (nothing tried yet), and `PushMessage::fromArray` required an integer,
+  so every push that Relay accepted and delivered threw `RelayMalformedResponse` ("'attempts'
+  should be an integer"). `attempts` is now read as 0 when null.
+
 ## [0.2.2] - 2026-11-13
 
 ### Fixed
