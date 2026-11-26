@@ -14,9 +14,9 @@ or `rlk_test_…`.
 ```php
 $me = Relay::whoami();
 
-$me->organization;   // Organization: id ('org_…'), name
+$me->organization;   // Organization: id ('rlorg_…'), name
 $me->environment;    // Environment::Live or Environment::Test
-$me->key;            // ApiKey: id ('key_…'), name, prefix, abilities
+$me->key;            // ApiKey: id ('rlkey_…'), name, prefix, abilities
 $me->project;          // ?ProjectReference: id, externalRef, name
 $me->can('deliveries:read');
 $me->scoped();       // whether the call acted for one project
@@ -28,7 +28,7 @@ $me->scoped();       // whether the call acted for one project
 
 - An **organization key** acts for the whole organization. It acts for one of its
   projects by sending the `Relay-Project` header with the project's external ref or its
-  `prj_…` id.
+  `rlprj_…` id.
 - A **project key** is locked to one project and needs no header. It may name its own
   project; naming another answers 403 (`RelayForbidden`, type `project_locked`).
 

@@ -375,7 +375,7 @@ class Relay
     // Project
 
     /**
-     * A client whose every call acts for that project (its external ref or `prj_…` id) by
+     * A client whose every call acts for that project (its external ref or `rlprj_…` id) by
      * sending `Relay-Project`. For organization keys; a project key is already locked to its
      * project and Relay refuses it naming another.
      */

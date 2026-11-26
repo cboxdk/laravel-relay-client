@@ -52,7 +52,7 @@ Route::post('/hooks/relay', function (Request $request) {
 })->middleware('relay.webhook')->name('hooks.relay');
 ```
 
-`$event->projectId` is Relay's id (`prj_…`), not your external ref. Keep the `Project::$id`
+`$event->projectId` is Relay's id (`rlprj_…`), not your external ref. Keep the `Project::$id`
 that `projects()->put()` returned if you need to map it back to a workspace.
 
 ## Test it
@@ -63,8 +63,8 @@ use Cbox\Relay\Client\Webhooks\WebhookSignature;
 config()->set('relay.webhook.secret', 'test-secret');
 
 $body = json_encode([
-    'id' => 'evt_1', 'type' => 'mail.bounced', 'delivery_id' => 'd_1',
-    'data' => ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com', 'permanent' => true, 'status' => '5.1.1', 'diagnostic' => '550 no such user'],
+    'id' => '01m773djv0xx7npppma8nrtfn9', 'type' => 'mail.bounced', 'delivery_id' => 'd_1',
+    'data' => ['id' => 'msg_1', 'project_id' => 'rlprj_1', 'recipient' => 'ann@example.com', 'permanent' => true, 'status' => '5.1.1', 'diagnostic' => '550 no such user'],
 ]);
 
 $this->call('POST', '/hooks/relay', server: ['HTTP_X_CBOX_SIGNATURE' => WebhookSignature::header($body, 'test-secret'), 'CONTENT_TYPE' => 'application/json'], content: $body)

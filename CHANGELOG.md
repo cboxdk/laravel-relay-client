@@ -5,6 +5,21 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Relay's ids carry an `rl` tag (2026-11-26).** Relay renamed the id prefixes that
+  belong to another Cbox product: `rlorg_`, `rlusr_`, `rlinv_`, `rlprj_`, `rlkey_`,
+  `rlaud_`, `rlevt_`, `rlsup_`, `rlmev_` and `rllnk_` replace `org_`, `usr_`, `inv_`,
+  `prj_`, `key_`, `aud_`, `evt_`, `sup_`, `mev_` and `lnk_`; the rest of an id is the
+  same. Relay still takes the old form for a while. `FakeRelay` hands out the new forms
+  (`rlorg_fake`, `rlkey_fake`, `rlprj_fake_1`, `rlevt_fake_1`), and the docs name them.
+  A test that expected `prj_fake_1` or `org_fake` from the fake needs the new one.
+
+### Fixed
+
+- **`Project::is()` knows a project by the `prj_` id a product stored before the
+  rename**, now that Relay answers with `rlprj_`.
+
 ## [0.2.3] - 2026-11-19
 
 ### Fixed

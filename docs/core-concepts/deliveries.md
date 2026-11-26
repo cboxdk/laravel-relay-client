@@ -44,7 +44,7 @@ See the [recipe](../cookbook/page-through-the-delivery-log.md).
 | Property | Type | |
 |----------|------|-|
 | `id` | `string` | `dlv_…` |
-| `projectId` | `?string` | `prj_…` |
+| `projectId` | `?string` | `rlprj_…` |
 | `channel` | `string` | Relay's string, e.g. `webhook` |
 | `subjectType`, `subjectId` | `string` | what was delivered |
 | `target` | `string` | where to |

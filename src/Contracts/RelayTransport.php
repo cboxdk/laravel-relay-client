@@ -50,7 +50,7 @@ use SensitiveParameter;
  * notification channel) is a convenience over this contract; bind your own
  * implementation to decorate, record or replace the transport.
  *
- * `$project` on every method is the project the call acts for (an external ref or a `prj_…`
+ * `$project` on every method is the project the call acts for (an external ref or an `rlprj_…`
  * id), sent as the `Relay-Project` header; null acts as the key itself. Most of the API
  * only makes sense for one project: with an organization key and no `$project` Relay answers
  * those calls 422. The {@see Relay} manager refuses them before anything is sent; this

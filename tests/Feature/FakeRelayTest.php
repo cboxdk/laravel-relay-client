@@ -31,7 +31,7 @@ it('creates a project once and answers the same project after', function (): voi
     $second = $relay->putProject('ws_1');
 
     expect($first->created)->toBeTrue()
-        ->and($first->id)->toStartWith('prj_')
+        ->and($first->id)->toStartWith('rlprj_')
         ->and($first->name)->toBe('Acme')
         ->and($first->settings)->toBe(['region' => 'eu'])
         ->and($second->created)->toBeFalse()

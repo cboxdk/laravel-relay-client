@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\Relay\Client\Data;
 
-/** The organization a key belongs to (`org_…`). */
+/** The organization a key belongs to (`rlorg_…`). */
 readonly class Organization
 {
     public function __construct(

@@ -55,7 +55,7 @@ it('fakes through the trait', function (): void {
 it('reads whoami', function (): void {
     $this->fakeRelay();
 
-    expect(Relay::whoami()->organization->id)->toBe('org_fake');
+    expect(Relay::whoami()->organization->id)->toBe('rlorg_fake');
 });
 
 it('puts, finds and lists projects', function (): void {

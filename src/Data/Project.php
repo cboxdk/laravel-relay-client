@@ -9,7 +9,7 @@ use DateTimeInterface;
 
 /**
  * A project: one of a product's own workspaces as Relay knows it. `$externalRef` is the
- * product's id for it, `$id` Relay's (`prj_…`). `$settings` is the free-form JSON object
+ * product's id for it, `$id` Relay's (`rlprj_…`). `$settings` is the free-form JSON object
  * the product stored with it.
  *
  * `$created` is true only on the project returned by the `put` that created it (Relay
@@ -51,10 +51,13 @@ readonly class Project
         return $this->suspendedAt !== null;
     }
 
-    /** Whether `$ref` names this project, by external ref or by id. */
+    /**
+     * Whether `$ref` names this project, by external ref or by id. An id stored before
+     * Relay tagged its prefixes (`prj_X`, now `rlprj_X`, 2026-11-26) still names it.
+     */
     public function is(string $ref): bool
     {
-        return $ref === $this->externalRef || $ref === $this->id;
+        return $ref === $this->externalRef || $ref === $this->id || (str_starts_with($ref, 'prj_') && 'rl'.$ref === $this->id);
     }
 
     /**

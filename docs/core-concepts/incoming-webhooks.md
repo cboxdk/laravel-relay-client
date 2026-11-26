@@ -173,7 +173,7 @@ one or CloudEvents 1.0 structured JSON, into the same object:
 | `deliveryId` | `delivery_id` | `deliveryid` | unique per event and endpoint: deduplicate on it |
 | `attempt` | `attempt` | `attempt` | |
 | `sequence` | `sequence` | `sequence` | counts up by one per endpoint; a gap is a delivery you have not seen |
-| `projectId` | `project.key` | the last part of `subject` | Relay's `prj_…` id |
+| `projectId` | `project.key` | the last part of `subject` | Relay's `rlprj_…` id |
 | `apiVersion` | `api_version` | `apiversion` | |
 | `envelope` | | | `Envelope::Cbox` or `Envelope::CloudEvents` |
 
@@ -237,7 +237,7 @@ use Cbox\Relay\Client\Webhooks\WebhookSignature;
 
 config()->set('relay.webhook.secret', 'test-secret');
 
-$body = json_encode(['id' => 'evt_1', 'type' => 'mail.complained', 'delivery_id' => 'd_1', 'data' => ['id' => 'msg_1', 'project_id' => 'prj_1', 'recipient' => 'ann@example.com']]);
+$body = json_encode(['id' => '01m773djv0xx7npppma8nrtfn9', 'type' => 'mail.complained', 'delivery_id' => 'd_1', 'data' => ['id' => 'msg_1', 'project_id' => 'rlprj_1', 'recipient' => 'ann@example.com']]);
 
 $this->call('POST', '/hooks/relay', server: ['HTTP_X_CBOX_SIGNATURE' => WebhookSignature::header($body, 'test-secret'), 'CONTENT_TYPE' => 'application/json'], content: $body)
     ->assertNoContent();
