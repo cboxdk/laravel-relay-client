@@ -5,6 +5,16 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-26
+
+### Upgrading
+
+- Composer constraints such as `^0.2` do not include this release. Use `^0.3`
+  to adopt the new fake ids, or `^0.2 || ^0.3` if your code and tests support both.
+- Relay accepts old public id prefixes until 15 January 2027. Update stored Relay
+  ids before then; the suffix is unchanged. API key secrets (`rlk_…`), `msg_` and
+  `src_` ids are unchanged.
+
 ### Changed
 
 - **Relay's ids carry an `rl` tag (2026-11-26).** Relay renamed the id prefixes that

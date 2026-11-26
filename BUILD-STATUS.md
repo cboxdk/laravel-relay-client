@@ -2,7 +2,9 @@
 
 What this package does today, and what it does not. It is the client for Cbox Relay's
 v1 API as described in the service's `docs/openapi/relay.v1.yaml` and its API guides.
-Released up to v0.2.2 on Packagist. It has not been run
+The v0.3.0 candidate includes Relay's `rl`-tagged public ids in the docs and fake,
+and `Project::is()` accepts a stored `prj_` id for its renamed `rlprj_` project.
+It has not been run
 against a live Relay.
 
 ## Built and tested
