@@ -36,7 +36,7 @@ A wrong or revoked key throws `RelayUnauthorized`.
 ```php
 $project = Relay::projects()->put($workspace->id, name: $workspace->name);
 
-$project->id;        // 'prj_…'
+$project->id;        // 'rlprj_…'
 $project->created;   // true the first time, false after
 ```
 

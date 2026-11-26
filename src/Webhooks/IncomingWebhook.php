@@ -73,7 +73,7 @@ readonly class IncomingWebhook
 
     /**
      * @param  array<string, mixed>  $data  the event's payload, untouched
-     * @param  string|null  $projectId  Relay's id (`prj_…`) of the project the event belongs to
+     * @param  string|null  $projectId  Relay's id (`rlprj_…`) of the project the event belongs to
      */
     public function __construct(
         public string $id,

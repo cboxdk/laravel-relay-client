@@ -7,7 +7,7 @@ weight: 23
 # Projects
 
 A project is one of your product's own workspaces (a team, a tenant, a project) as Relay
-knows it. You name it with your own id, the `external_ref`; Relay gives it an `prj_…` id.
+knows it. You name it with your own id, the `external_ref`; Relay gives it an `rlprj_…` id.
 
 ## Put
 
@@ -29,7 +29,7 @@ it is safe to call every time.
 
 ```php
 Relay::projects()->find($workspace->id);   // by external ref
-Relay::projects()->find('prj_…');          // or by Relay's id
+Relay::projects()->find('rlprj_…');          // or by Relay's id
 ```
 
 Returns `null` when Relay answers 404.
@@ -54,7 +54,7 @@ while (true) {
 
 | Property | Type | |
 |----------|------|-|
-| `id` | `string` | Relay's id, `prj_…` |
+| `id` | `string` | Relay's id, `rlprj_…` |
 | `externalRef` | `string` | your id |
 | `name` | `?string` | null when the project was put without one |
 | `settings` | `array<string, mixed>` | the JSON object you stored |

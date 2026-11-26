@@ -38,7 +38,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Optional. With an organization key, the project every call acts for (its
-    | external ref or its `prj_…` id), sent as the `Relay-Project` header.
+    | external ref or its `rlprj_…` id), sent as the `Relay-Project` header.
     | `Relay::forProject()` overrides it per call. Left empty, no header is
     | sent: a project key acts for its own project, and an organization key for
     | the environment's `default` project, which Relay makes on first use.

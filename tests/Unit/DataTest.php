@@ -24,13 +24,16 @@ it('round-trips an identity', function (): void {
 });
 
 it('round-trips a project', function (): void {
-    $body = ['id' => 'prj_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'settings' => ['a' => ['b' => 1]], 'suspended_at' => '2026-11-12T11:00:00+00:00', 'created_at' => '2026-11-12T10:00:00+00:00'];
+    $body = ['id' => 'rlprj_1', 'external_ref' => 'ws_1', 'name' => 'Acme', 'settings' => ['a' => ['b' => 1]], 'suspended_at' => '2026-11-12T11:00:00+00:00', 'created_at' => '2026-11-12T10:00:00+00:00'];
 
     $project = Project::fromArray($body);
 
     expect($project->toArray())->toBe($body)
         ->and($project->is('ws_1'))->toBeTrue()
+        ->and($project->is('rlprj_1'))->toBeTrue()
+        // The id a product stored before Relay tagged its prefixes.
         ->and($project->is('prj_1'))->toBeTrue()
+        ->and($project->is('prj_2'))->toBeFalse()
         ->and($project->is('ws_2'))->toBeFalse();
 });
 

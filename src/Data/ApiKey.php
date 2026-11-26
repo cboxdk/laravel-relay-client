@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Cbox\Relay\Client\Data;
 
 /**
- * What Relay tells about the key a call was made with: its id (`key_…`), name, the
+ * What Relay tells about the key a call was made with: its id (`rlkey_…`), name, the
  * visible prefix and its abilities. Never the secret itself.
  */
 readonly class ApiKey

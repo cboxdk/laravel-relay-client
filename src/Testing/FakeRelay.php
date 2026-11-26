@@ -88,9 +88,9 @@ class FakeRelay implements RelayTransport, SendingLimitsTransport
     public function __construct()
     {
         $this->identity = new Identity(
-            new Organization('org_fake', 'Fake organization'),
+            new Organization('rlorg_fake', 'Fake organization'),
             Environment::Test,
-            new ApiKey('key_fake', 'Fake key', 'rlk_test_fake', [
+            new ApiKey('rlkey_fake', 'Fake key', 'rlk_test_fake', [
                 'projects:manage', 'deliveries:read', 'judge:run', 'inbound:read', 'inbound:manage', 'push:send', 'push:manage',
                 'mail:send', 'domains:manage', 'suppressions:manage', 'events:publish', 'events:read', 'endpoints:manage', 'sources:manage',
             ]),
@@ -188,7 +188,7 @@ class FakeRelay implements RelayTransport, SendingLimitsTransport
         $existing = $this->projects[$externalRef] ?? null;
 
         return $this->projects[$externalRef] = new Project(
-            id: $existing === null ? 'prj_fake_'.++$this->sequence : $existing->id,
+            id: $existing === null ? 'rlprj_fake_'.++$this->sequence : $existing->id,
             externalRef: $externalRef,
             name: $name ?? $externalRef,
             createdAt: $existing === null ? Carbon::now()->toDateTimeImmutable() : $existing->createdAt,

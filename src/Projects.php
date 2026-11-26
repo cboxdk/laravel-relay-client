@@ -28,7 +28,7 @@ class Projects
         return $this->transport->putProject($externalRef, $name, $settings, $idempotencyKey, $this->actingProject);
     }
 
-    /** The project by external ref or `prj_…` id; null when there is none. */
+    /** The project by external ref or `rlprj_…` id; null when there is none. */
     public function find(string $ref): ?Project
     {
         return $this->transport->findProject($ref, $this->actingProject);
